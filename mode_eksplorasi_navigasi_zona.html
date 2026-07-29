@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mode Eksplorasi — Navigasi ke Zona</title>
+<style>
+  :root{
+    --ink:#1c2321; --ink-soft:#5b655f; --line:#e2e5df; --paper:#fbfaf6; --card:#ffffff;
+    --go:#2f6b4f; --go-bg:#e7f1ea; --new:#2a5a7a; --new-bg:#e7eff5;
+    --danger:#a53838; --danger-bg:#f7e8e6; --warn:#a3521f; --map-bg:#eef0e9;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; display:flex; justify-content:center;}
+  .phone{width:100%; max-width:420px; min-height:100vh; background:var(--paper); position:relative;}
+
+  .topbar{padding:14px 16px 12px; border-bottom:1px solid var(--line); background:var(--paper); position:relative; z-index:20;}
+  .topbar .label{font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; font-weight:600;}
+  .topbar h1{font-size:17px; margin:3px 0 0; font-weight:600;}
+
+  /* ── FASE 1: navigasi menuju zona ── */
+  #phaseNav{display:block;}
+  .nav-hero{padding:26px 20px 10px; text-align:center;}
+  .distance-big{font-size:44px; font-weight:700; margin:0; letter-spacing:-.02em;}
+  .distance-label{font-size:13px; color:var(--ink-soft); margin:2px 0 0;}
+
+  .compass-wrap{display:flex; justify-content:center; padding:22px 0 10px;}
+  .compass{
+    width:190px; height:190px; border-radius:50%; position:relative;
+    background:radial-gradient(circle at center, #fff 0%, var(--map-bg) 100%);
+    border:1px solid var(--line); box-shadow:0 4px 18px rgba(0,0,0,.06);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .compass::before{
+    content:''; position:absolute; inset:14px; border-radius:50%; border:1px dashed #c7cbc1;
+  }
+  .arrow{
+    width:0; height:0; position:relative; transition:transform .5s ease;
+    filter:drop-shadow(0 2px 4px rgba(0,0,0,.15));
+  }
+  .arrow svg{width:64px; height:64px;}
+  .you-dot{
+    position:absolute; bottom:16px; width:12px; height:12px; border-radius:50%;
+    background:var(--new); border:2px solid #fff; box-shadow:0 0 0 3px rgba(42,90,122,.2);
+  }
+
+  .zone-info-card{
+    margin:8px 18px 0; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:15px;
+  }
+  .zone-info-card .row{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .zone-info-card .zn{font-size:15px; font-weight:600;}
+  .score-pill{background:var(--danger); color:#fff; font-size:11.5px; font-weight:600; padding:3px 10px; border-radius:20px;}
+  .zone-stat-row{display:flex; gap:8px; margin-top:10px;}
+  .zone-stat{flex:1; background:var(--danger-bg); border-radius:9px; padding:8px 10px; text-align:center;}
+  .zone-stat .n{font-size:15px; font-weight:700; color:var(--danger);}
+  .zone-stat .l{font-size:10.5px; color:var(--ink-soft); margin-top:1px;}
+  .why-line{font-size:12px; color:var(--ink-soft); margin-top:10px; line-height:1.5;}
+  .why-line b{color:var(--ink);}
+
+  .status-row{display:flex; align-items:center; gap:6px; justify-content:center; margin-top:16px; font-size:11.5px;}
+  .status-dot{width:8px; height:8px; border-radius:50%; background:var(--ink-soft);}
+  .status-dot.live{background:var(--go);}
+  .status-dot.wait{background:var(--warn); animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.3;}}
+  #statusText{color:var(--ink-soft);}
+
+  .arrived-banner{
+    display:none; margin:18px 18px 0; background:var(--go-bg); border:1px solid #cfe3d7; border-radius:12px;
+    padding:13px 15px; text-align:center; font-size:13px; color:#1e4633; font-weight:600;
+  }
+  .arrived-banner.show{display:block; animation:fadeIn .3s ease;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ── FASE 2: sisir area (muncul begitu masuk zona) ── */
+  #phaseSweep{display:none;}
+  .sweep-topbar{padding:12px 16px; background:var(--card); border-bottom:1px solid var(--line);}
+  .progress-row{display:flex; align-items:center; gap:10px; margin-top:8px;}
+  .progress-track{flex:1; height:7px; border-radius:4px; background:var(--line); overflow:hidden;}
+  .progress-fill{height:100%; background:var(--go); width:0%; border-radius:4px; transition:width .3s;}
+  .progress-label{font-size:12px; color:var(--ink-soft); white-space:nowrap; font-variant-numeric:tabular-nums;}
+  .map-wrap{position:relative; width:100%; height:calc(100vh - 250px); background:var(--map-bg); overflow:hidden;}
+  .map-svg{position:absolute; inset:0; width:100%; height:100%;}
+  .grid-cell{position:absolute; border:1px solid #c7cbc1; background:rgba(136,135,127,0.06); transition:background .3s, border-color .3s;}
+  .grid-cell.swept{background:rgba(99,153,34,0.28); border-color:#3b6d11;}
+  .user-dot2{position:absolute; width:16px; height:16px; border-radius:50%; background:var(--new); border:3px solid #fff; box-shadow:0 0 0 4px rgba(42,90,122,0.25); transform:translate(-50%,-50%); transition:left .4s linear, top .4s linear; z-index:5;}
+  .fab{position:absolute; right:16px; bottom:16px; z-index:25; width:58px; height:58px; border-radius:50%; background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; font-size:26px; border:none; box-shadow:0 4px 14px rgba(0,0,0,.25); cursor:pointer;}
+  .stat-bar{position:absolute; left:16px; bottom:16px; z-index:25; background:#fff; border:1px solid var(--line); border-radius:12px; padding:9px 13px; font-size:12px; box-shadow:0 4px 10px rgba(0,0,0,.08);}
+  .stat-bar b{font-size:16px; display:block;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <h1 style="position:absolute;width:1px;height:1px;overflow:hidden;">Navigasi ke zona density tinggi, lalu sisir area begitu tiba</h1>
+
+  <!-- ═══ FASE 1: NAVIGASI KE ZONA ═══ -->
+  <div id="phaseNav">
+    <div class="topbar">
+      <div class="label">Mode Eksplorasi</div>
+      <h1>Menuju zona prioritas</h1>
+    </div>
+
+    <div class="nav-hero">
+      <p class="distance-big" id="distanceBig">850 m</p>
+      <p class="distance-label">jarak kamu ke zona</p>
+    </div>
+
+    <div class="compass-wrap">
+      <div class="compass">
+        <div class="arrow" id="arrow">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2 L19 21 L12 17 L5 21 Z" fill="#a53838"/>
+          </svg>
+        </div>
+        <div class="you-dot"></div>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <span class="status-dot wait" id="statusDot"></span>
+      <span id="statusText">Menyalakan GPS...</span>
+    </div>
+
+    <div class="zone-info-card">
+      <div class="row">
+        <span class="zn">🎯 Zona: Baning Kota</span>
+        <span class="score-pill">Skor 82</span>
+      </div>
+      <div class="zone-stat-row">
+        <div class="zone-stat"><div class="n">~4.100</div><div class="l">Estimasi penduduk</div></div>
+        <div class="zone-stat"><div class="n">3</div><div class="l">Toko aktif Nabati</div></div>
+      </div>
+      <p class="why-line"><b>Kenapa diarahin ke sini:</b> penduduknya padat tapi outlet Nabati di area ini paling sedikit dibanding kecamatan lain se-depo. Belum tentu ada toko kosong beneran — perlu dicek langsung.</p>
+    </div>
+
+    <div class="arrived-banner" id="arrivedBanner">✅ Kamu udah masuk zona — mode sisir area otomatis nyala</div>
+  </div>
+
+  <!-- ═══ FASE 2: SISIR AREA (setelah tiba) ═══ -->
+  <div id="phaseSweep">
+    <div class="sweep-topbar">
+      <div class="label" style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;font-weight:600;">Sekarang di dalam zona</div>
+      <h1 style="font-size:16px;margin:3px 0 0;font-weight:600;">Baning Kota — sisir area</h1>
+      <div class="progress-row">
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-label" id="progressLabel">0 / 25 area</div>
+      </div>
+    </div>
+    <div class="map-wrap" id="mapWrap">
+      <svg class="map-svg" id="mapSvg" viewBox="0 0 400 500" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="stat-bar"><b id="statNew">0</b>Toko baru dicatat</div>
+    <button class="fab" id="fabAdd">+</button>
+  </div>
+</div>
+
+<script>
+/* ═══ Data zona demo ═══ */
+const ZONE_CENTER = { lat:-0.283, lng:111.600 };
+const ZONE_BOUNDS = { south:-0.293, north:-0.273, west:111.590, east:111.610 };
+// titik awal sales (demo) -- sengaja ditaro agak jauh dari zona biar fase navigasi kelihatan
+const START_POS = { lat:-0.2905, lng:111.5865 };
+
+function haversine(lat1,lng1,lat2,lng2){
+  const R=6371000, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLng=toRad(lng2-lng1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function bearing(lat1,lng1,lat2,lng2){
+  const toRad=d=>d*Math.PI/180, toDeg=r=>r*180/Math.PI;
+  const y = Math.sin(toRad(lng2-lng1))*Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) - Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lng2-lng1));
+  return (toDeg(Math.atan2(y,x))+360)%360;
+}
+function isInsideZone(lat,lng){
+  return lat>=ZONE_BOUNDS.south && lat<=ZONE_BOUNDS.north && lng>=ZONE_BOUNDS.west && lng<=ZONE_BOUNDS.east;
+}
+
+function setStatus(text, live){
+  document.getElementById('statusText').textContent = text;
+  document.getElementById('statusDot').className = 'status-dot ' + (live?'live':'wait');
+}
+
+let arrived = false;
+function updateNav(lat,lng){
+  const dist = haversine(lat,lng, ZONE_CENTER.lat, ZONE_CENTER.lng);
+  const brg = bearing(lat,lng, ZONE_CENTER.lat, ZONE_CENTER.lng);
+  document.getElementById('arrow').style.transform = `rotate(${brg}deg)`;
+
+  const distEl = document.getElementById('distanceBig');
+  distEl.textContent = dist >= 1000 ? (dist/1000).toFixed(1)+' km' : Math.round(dist)+' m';
+
+  if(isInsideZone(lat,lng) && !arrived){
+    arrived = true;
+    document.getElementById('arrivedBanner').classList.add('show');
+    setTimeout(()=>{
+      document.getElementById('phaseNav').style.display = 'none';
+      document.getElementById('phaseSweep').style.display = 'block';
+      startSweep();
+    }, 1400);
+  }
+}
+
+/* ═══ Tracking GPS (dengan fallback simulasi jalan dari luar ke dalam zona) ═══ */
+let fallbackTriggered = false;
+function startTracking(){
+  const fallbackTimer = setTimeout(()=>{
+    if(!fallbackTriggered){ fallbackTriggered = true; setStatus('GPS gak merespons — mode simulasi perjalanan', false); simulateApproach(); }
+  }, 5000);
+
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(
+      pos=>{ if(!fallbackTriggered){clearTimeout(fallbackTimer);} setStatus('GPS aktif', true); updateNav(pos.coords.latitude, pos.coords.longitude); },
+      ()=>{ if(fallbackTriggered) return; fallbackTriggered=true; clearTimeout(fallbackTimer); setStatus('GPS ditolak — mode simulasi perjalanan', false); simulateApproach(); },
+      {enableHighAccuracy:true}
+    );
+  } else {
+    clearTimeout(fallbackTimer); fallbackTriggered = true;
+    setStatus('GPS gak didukung — mode simulasi', false);
+    simulateApproach();
+  }
+}
+
+// simulasi: gerak dari START_POS menuju ZONE_CENTER pelan-pelan, biar demo kelihatan alurnya
+function simulateApproach(){
+  let t = 0;
+  const steps = 40;
+  const timer = setInterval(()=>{
+    t++;
+    const frac = Math.min(t/steps, 1);
+    const lat = START_POS.lat + (ZONE_CENTER.lat-START_POS.lat)*frac;
+    const lng = START_POS.lng + (ZONE_CENTER.lng-START_POS.lng)*frac;
+    updateNav(lat,lng);
+    if(frac>=1) clearInterval(timer);
+  }, 220);
+}
+startTracking();
+
+/* ═══ FASE 2: sisir grid (sama seperti sebelumnya) ═══ */
+const GRID_N = 5, GRID_TRIGGER_RADIUS_M = 130, VB_W=400, VB_H=500;
+function latLngToXY(lat,lng){
+  const x = ((lng-ZONE_BOUNDS.west)/(ZONE_BOUNDS.east-ZONE_BOUNDS.west))*VB_W;
+  const y = ((ZONE_BOUNDS.north-lat)/(ZONE_BOUNDS.north-ZONE_BOUNDS.south))*VB_H;
+  return {x,y};
+}
+let sweepStarted = false;
+function startSweep(){
+  if(sweepStarted) return;
+  sweepStarted = true;
+  const svg = document.getElementById('mapSvg');
+  const ns='http://www.w3.org/2000/svg';
+  [[0,80,400,120],[0,260,400,220],[0,420,400,380],[70,0,110,500],[230,0,200,500],[330,0,360,500]].forEach(([x1,y1,x2,y2])=>{
+    const line=document.createElementNS(ns,'line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke','#d7dbd1'); line.setAttribute('stroke-width',10);
+    svg.appendChild(line);
+  });
+
+  const mapWrap = document.getElementById('mapWrap');
+  const dLat=(ZONE_BOUNDS.north-ZONE_BOUNDS.south)/GRID_N, dLng=(ZONE_BOUNDS.east-ZONE_BOUNDS.west)/GRID_N;
+  const cells=[];
+  for(let i=0;i<GRID_N;i++) for(let j=0;j<GRID_N;j++){
+    const latS=ZONE_BOUNDS.south+i*dLat, latN=ZONE_BOUNDS.south+(i+1)*dLat;
+    const lngW=ZONE_BOUNDS.west+j*dLng, lngE=ZONE_BOUNDS.west+(j+1)*dLng;
+    const el=document.createElement('div'); el.className='grid-cell';
+    mapWrap.appendChild(el);
+    cells.push({el,centerLat:(latS+latN)/2,centerLng:(lngW+lngE)/2,swept:false});
+  }
+  function layout(){
+    cells.forEach(c=>{
+      const p1=latLngToXY(c.centerLat+dLat/2, c.centerLng-dLng/2);
+      const p2=latLngToXY(c.centerLat-dLat/2, c.centerLng+dLng/2);
+      c.el.style.left=(p1.x/VB_W*100)+'%'; c.el.style.top=(p1.y/VB_H*100)+'%';
+      c.el.style.width=((p2.x-p1.x)/VB_W*100)+'%'; c.el.style.height=((p2.y-p1.y)/VB_H*100)+'%';
+    });
+  }
+  layout();
+
+  const userDot = document.createElement('div'); userDot.className='user-dot2'; mapWrap.appendChild(userDot);
+  let sweptCount=0;
+  function updateProgress(){
+    document.getElementById('progressLabel').textContent = `${sweptCount} / ${cells.length} area`;
+    document.getElementById('progressFill').style.width = Math.round(sweptCount/cells.length*100)+'%';
+  }
+  function placeAndMark(lat,lng){
+    const {x,y}=latLngToXY(lat,lng);
+    userDot.style.left=(x/VB_W*100)+'%'; userDot.style.top=(y/VB_H*100)+'%';
+    cells.forEach(c=>{
+      if(c.swept) return;
+      if(haversine(lat,lng,c.centerLat,c.centerLng)<=GRID_TRIGGER_RADIUS_M){ c.swept=true; c.el.classList.add('swept'); sweptCount++; updateProgress(); }
+    });
+  }
+
+  // lanjutin tracking GPS asli buat sisir; kalau tadi simulasi, lanjut simulasi jalan random di dalam zona
+  if(navigator.geolocation && !fallbackTriggered){
+    navigator.geolocation.watchPosition(pos=> placeAndMark(pos.coords.latitude, pos.coords.longitude));
+  } else {
+    const path=[]; for(let i=0;i<GRID_N;i++) for(let j=0;j<GRID_N;j++) path.push([ZONE_BOUNDS.south+(i+0.5)*dLat+(Math.random()-0.5)*0.0004, ZONE_BOUNDS.west+(j+0.5)*dLng+(Math.random()-0.5)*0.0004]);
+    let idx=0;
+    const step=()=>{ if(idx>=path.length) return; placeAndMark(path[idx][0],path[idx][1]); idx++; setTimeout(step,750); };
+    step();
+  }
+
+  document.getElementById('fabAdd').addEventListener('click', ()=>{
+    const statEl = document.getElementById('statNew');
+    statEl.textContent = Number(statEl.textContent) + 1;
+    alert('(Demo) Form foto + nama toko baru muncul di sini, sama kayak versi sebelumnya.');
+  });
+}
+</script>
+</body>
+</html>

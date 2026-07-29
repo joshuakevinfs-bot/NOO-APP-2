@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOO Whitespace Pipeline</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --ink:#1c2321; --ink-soft:#5b655f; --line:#d9ddd6; --paper:#fbfaf6; --card:#ffffff;
+    --go:#2f6b4f; --go-bg:#e7f1ea; --warn:#a3521f; --warn-bg:#f7ece0;
+    --danger:#a53838; --danger-bg:#f7e8e6; --new:#2a5a7a; --new-bg:#e7eff5;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; padding:24px;}
+  .wrap{max-width:960px; margin:0 auto;}
+  h1{font-size:22px; font-weight:600; margin:0 0 4px;}
+  .sub{color:var(--ink-soft); font-size:13.5px; margin:0 0 24px;}
+
+  .section{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:16px;}
+  .section h2{font-size:15px; font-weight:600; margin:0 0 4px;}
+  .section .desc{font-size:12.5px; color:var(--ink-soft); margin:0 0 14px; line-height:1.5;}
+
+  .upload-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
+  .upload-box{border:1.5px dashed var(--line); border-radius:10px; padding:14px; text-align:center;}
+  .upload-box label{display:block; font-size:12.5px; font-weight:600; margin-bottom:8px;}
+  .upload-box input[type=file]{font-size:11.5px; width:100%;}
+  .upload-status{font-size:11.5px; margin-top:8px; color:var(--ink-soft);}
+  .upload-status.ok{color:var(--go); font-weight:600;}
+  .col-hint{font-size:10.5px; color:var(--ink-soft); margin-top:6px; line-height:1.5;}
+
+  .param-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:4px;}
+  .param{display:flex; flex-direction:column; gap:4px;}
+  .param label{font-size:11.5px; color:var(--ink-soft);}
+  .param input{border:1px solid var(--line); border-radius:8px; padding:7px 9px; font-size:13px; font-family:inherit;}
+
+  .run-btn{
+    background:var(--ink); color:#fff; border:none; border-radius:10px; padding:13px 20px;
+    font-size:14px; font-weight:600; cursor:pointer; width:100%; margin-top:6px;
+  }
+  .run-btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  .log{
+    background:#12151a; color:#c9d4cd; font-family:ui-monospace,monospace; font-size:12px;
+    border-radius:10px; padding:14px; white-space:pre-wrap; line-height:1.6; max-height:260px; overflow-y:auto;
+    display:none;
+  }
+  .log.show{display:block;}
+
+  .summary-row{display:flex; gap:10px; margin:14px 0; flex-wrap:wrap;}
+  .pill{border-radius:10px; padding:10px 14px; font-size:12.5px; flex:1; min-width:140px;}
+  .pill .n{font-size:20px; font-weight:600; display:block;}
+  .pill.ws{background:var(--new-bg); color:#193c52;}
+  .pill.re{background:var(--go-bg); color:#1e4633;}
+  .pill.dup{background:var(--warn-bg); color:#5c3410;}
+  .pill.closed{background:var(--danger-bg); color:#5c1e1e;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th{text-align:left; padding:8px 10px; border-bottom:1.5px solid var(--line); color:var(--ink-soft); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.02em;}
+  td{padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  .tag{display:inline-block; font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:20px; background:var(--new-bg); color:var(--new);}
+  .score{font-variant-numeric:tabular-nums; font-weight:600;}
+
+  .download-row{display:flex; gap:10px; margin-top:14px;}
+  .dl-btn{
+    background:#fff; border:1px solid var(--line); border-radius:9px; padding:9px 14px;
+    font-size:12.5px; font-weight:600; cursor:pointer; color:var(--ink);
+  }
+  .empty-note{font-size:12.5px; color:var(--ink-soft); text-align:center; padding:20px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>NOO whitespace pipeline</h1>
+  <p class="sub">Upload 3 file CSV, jalankan pipeline (filter koridor → dedupe → scoring → snap ke urutan kunjungan), download hasil JSON per sales per hari.</p>
+
+  <div class="section">
+    <h2>1. Upload data</h2>
+    <p class="desc">Semua proses jalan di browser lo sendiri — file tidak dikirim ke server manapun.</p>
+    <div class="upload-grid">
+      <div class="upload-box">
+        <label>JKS (rute kunjungan)</label>
+        <input type="file" accept=".csv" id="file-jks">
+        <div class="upload-status" id="status-jks">belum diupload</div>
+        <div class="col-hint">Kolom: GAB, KD_SLS_TO_BE, NAMA_SLS_TO_BE, KD_OUTLET, NAMA_OUTLET, LATITUDE, LONGITUDE<br>(persis nama kolom di file JKS TO BE — GAB = gabungan CYCLE+RUTE, jadi unit satu rute)</div>
+      </div>
+      <div class="upload-box">
+        <label>Master outlet</label>
+        <input type="file" accept=".csv" id="file-master">
+        <div class="upload-status" id="status-master">belum diupload</div>
+        <div class="col-hint">Kolom: kode_outlet, nama, lat, lng, status_aktif (aktif/dormant)</div>
+      </div>
+      <div class="upload-box">
+        <label>Kandidat POI (Overture/scraping)</label>
+        <input type="file" accept=".csv" id="file-poi">
+        <div class="upload-status" id="status-poi">belum diupload</div>
+        <div class="col-hint">Kolom: nama, lat, lng, rating (opsional), review_count (opsional)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>2. Parameter</h2>
+    <p class="desc">Sesuaikan kalau perlu, default sudah masuk akal buat pilot.</p>
+    <div class="param-grid">
+      <div class="param"><label>Buffer koridor (m)</label><input type="number" id="p-buffer" value="250"></div>
+      <div class="param"><label>Radius dedupe (m)</label><input type="number" id="p-dedupe" value="40"></div>
+      <div class="param"><label>Threshold nama mirip (0-100)</label><input type="number" id="p-fuzzy" value="80"></div>
+      <div class="param"><label>Maks kandidat/sales/hari</label><input type="number" id="p-max" value="5"></div>
+    </div>
+  </div>
+
+  <button class="run-btn" id="run-btn" disabled>Upload ketiga file dulu buat jalanin pipeline</button>
+  <div class="log" id="log"></div>
+
+  <div class="section" id="result-section" style="display:none;">
+    <h2>3. Hasil</h2>
+    <div class="summary-row" id="summary"></div>
+    <div id="table-wrap"></div>
+    <div class="download-row">
+      <button class="dl-btn" id="dl-json">Download JSON (semua sales/hari)</button>
+      <button class="dl-btn" id="dl-csv">Download CSV (buat dicek manual)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let files = { jks: null, master: null, poi: null };
+let pipelineResult = null;
+
+function parseCSV(file){
+  return new Promise((resolve, reject)=>{
+    Papa.parse(file, {
+      header:true, skipEmptyLines:true, dynamicTyping:true,
+      complete: r => resolve(r.data),
+      error: e => reject(e)
+    });
+  });
+}
+
+['jks','master','poi'].forEach(key=>{
+  document.getElementById(`file-${key}`).addEventListener('change', async (e)=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    try{
+      const rows = await parseCSV(f);
+      files[key] = rows;
+      const statusEl = document.getElementById(`status-${key}`);
+      statusEl.textContent = `${rows.length} baris terbaca`;
+      statusEl.classList.add('ok');
+      checkReady();
+    }catch(err){
+      document.getElementById(`status-${key}`).textContent = 'gagal baca file: ' + err.message;
+    }
+  });
+});
+
+function checkReady(){
+  const btn = document.getElementById('run-btn');
+  if(files.jks && files.master && files.poi){
+    btn.disabled = false;
+    btn.textContent = 'Jalankan pipeline';
+  }
+}
+
+// ── geo utils ──────────────────────────────────────────
+function haversine(lat1,lng1,lat2,lng2){
+  const R=6371000, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLng=toRad(lng2-lng1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function metersToDegLat(m){ return m/111320; }
+function metersToDegLng(m, atLat){ return m/(111320*Math.cos(atLat*Math.PI/180)); }
+
+function pointToPolylineDist(lat,lng,pts){
+  if(pts.length===1) return haversine(lat,lng,pts[0].lat,pts[0].lng);
+  const refLat = pts[0].lat;
+  const dLat = metersToDegLat(1), dLng = metersToDegLng(1, refLat);
+  const toXY = p => [ p.lng/dLng, p.lat/dLat ];
+  const [px,py] = toXY({lat,lng});
+  let minDist = Infinity;
+  for(let i=0;i<pts.length-1;i++){
+    const [x1,y1]=toXY(pts[i]), [x2,y2]=toXY(pts[i+1]);
+    const segLen2 = (x2-x1)**2+(y2-y1)**2;
+    let dist;
+    if(segLen2===0){ dist = Math.hypot(px-x1,py-y1); }
+    else{
+      let t = ((px-x1)*(x2-x1)+(py-y1)*(y2-y1))/segLen2;
+      t = Math.max(0,Math.min(1,t));
+      const projX=x1+t*(x2-x1), projY=y1+t*(y2-y1);
+      dist = Math.hypot(px-projX,py-projY);
+    }
+    minDist = Math.min(minDist,dist);
+  }
+  return minDist;
+}
+
+// fuzzy name similarity sederhana (token overlap, 0-100)
+function nameSimilarity(a,b){
+  const norm = s => (s||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').split(' ').filter(Boolean);
+  const ta = norm(a), tb = norm(b);
+  if(ta.length===0 || tb.length===0) return 0;
+  const setB = new Set(tb);
+  let overlap = 0;
+  ta.forEach(t=>{ if(setB.has(t)) overlap++; });
+  const denom = Math.max(ta.length, tb.length);
+  return Math.round((overlap/denom)*100);
+}
+
+function log(msg){
+  const el = document.getElementById('log');
+  el.classList.add('show');
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+document.getElementById('run-btn').addEventListener('click', runPipeline);
+
+function runPipeline(){
+  document.getElementById('log').textContent = '';
+  document.getElementById('result-section').style.display = 'none';
+
+  const BUFFER_M = Number(document.getElementById('p-buffer').value);
+  const DEDUPE_M = Number(document.getElementById('p-dedupe').value);
+  const FUZZY_TH = Number(document.getElementById('p-fuzzy').value);
+  const MAX_CAND = Number(document.getElementById('p-max').value);
+
+  // ── Tahap 1: bangun rute per GAB (gabungan cycle+rute) ──
+  // Catatan: JKS gak punya urutan kunjungan harian atau hari spesifik --
+  // urutan ditentuin sales sendiri di lapangan. Jadi unit rute di sini
+  // adalah GAB (kumpulan outlet dalam satu rute), bukan sales+hari.
+  log('=== Tahap 1: bangun rute dari JKS (per GAB) ===');
+  const jksRows = files.jks.filter(r=> (r.LATITUDE||r.lat) && (r.LONGITUDE||r.lng));
+  const routes = {};
+  jksRows.forEach(r=>{
+    const key = r.GAB || r.gab || r.rute || 'RUTE-DEFAULT';
+    if(!routes[key]) routes[key] = [];
+    routes[key].push({
+      lat: r.LATITUDE ?? r.lat,
+      lng: r.LONGITUDE ?? r.lng,
+      kode_outlet: r['KD OUTLET'] || r.kode_outlet,
+      nama_outlet: r['NAMA OUTLET'] || r.nama_outlet || '(tanpa nama)'
+    });
+  });
+  log(`Jumlah rute (GAB): ${Object.keys(routes).length}`);
+
+  // ── Tahap 2: kandidat POI (dari file upload, bukan scraping live) ──
+  log('\n=== Tahap 2: baca kandidat POI ===');
+  const poiRows = files.poi.filter(r=>r.lat && r.lng && r.nama);
+  log(`Kandidat POI terbaca: ${poiRows.length}`);
+
+  // filter: hanya yang jatuh dalam buffer_m dari SALAH SATU outlet di rute manapun
+  // (bukan jarak ke garis rute berurutan -- urutan kunjungan gak ada di data ini)
+  function nearestPointInGroup(lat, lng, pts){
+    let best = null, bestD = Infinity;
+    pts.forEach(p=>{
+      const d = haversine(lat,lng,p.lat,p.lng);
+      if(d<bestD){ bestD=d; best=p; }
+    });
+    return {point:best, dist:bestD};
+  }
+
+  const inCorridor = [];
+  poiRows.forEach(poi=>{
+    let bestRoute = null, bestDist = Infinity, bestPoint = null;
+    Object.entries(routes).forEach(([key, pts])=>{
+      const {point, dist} = nearestPointInGroup(poi.lat, poi.lng, pts);
+      if(dist < bestDist){ bestDist = dist; bestRoute = key; bestPoint = point; }
+    });
+    if(bestDist <= BUFFER_M){
+      inCorridor.push({...poi, _route_key:bestRoute, _dist_to_route:bestDist, _nearest_outlet:bestPoint});
+    }
+  });
+  log(`Kandidat dalam koridor (<=${BUFFER_M}m dari outlet terdekat di suatu rute): ${inCorridor.length}`);
+
+  // ── Tahap 3: dedupe lawan master outlet ──
+  log('\n=== Tahap 3: dedupe & filter ===');
+  const master = files.master.filter(r=>r.lat && r.lng);
+  const active = master.filter(r=> (r.status_aktif||'').toLowerCase()==='aktif');
+  const dormant = master.filter(r=> (r.status_aktif||'').toLowerCase()==='dormant');
+
+  const whitespace = [], reaktivasi = [], buangDup = [];
+  inCorridor.forEach(cand=>{
+    let matchedActive = null, matchedDormant = null;
+    for(const o of active){
+      const d = haversine(cand.lat,cand.lng,o.lat,o.lng);
+      if(d<=DEDUPE_M && nameSimilarity(cand.nama,o.nama)>=FUZZY_TH){ matchedActive = {o,d}; break; }
+    }
+    if(matchedActive){ buangDup.push(cand); return; }
+
+    for(const o of dormant){
+      const d = haversine(cand.lat,cand.lng,o.lat,o.lng);
+      if(d<=DEDUPE_M && nameSimilarity(cand.nama,o.nama)>=FUZZY_TH){ matchedDormant = {o,d}; break; }
+    }
+    if(matchedDormant){ reaktivasi.push(cand); return; }
+
+    // jarak ke outlet aktif terdekat (buat scoring & anti-kanibal)
+    let nearestActive = Infinity;
+    active.forEach(o=>{ nearestActive = Math.min(nearestActive, haversine(cand.lat,cand.lng,o.lat,o.lng)); });
+    cand._nearest_active_m = nearestActive===Infinity ? null : nearestActive;
+    whitespace.push(cand);
+  });
+  log(`Whitespace murni: ${whitespace.length}`);
+  log(`Reaktivasi (match dormant, dikeluarkan dari whitespace): ${reaktivasi.length}`);
+  log(`Dibuang (duplikat outlet aktif): ${buangDup.length}`);
+
+  // ── Tahap 4: scoring + toko acuan terdekat ──
+  // Karena gak ada urutan kunjungan, kandidat gak "disisip di kunjungan ke-N",
+  // tapi ditempelin ke TOKO ACUAN terdekat di rute yang sama -- sales
+  // ketemu sendiri urutannya pas jalan, kandidat muncul begitu dia deket toko acuan itu.
+  log('\n=== Tahap 4: scoring & cari toko acuan terdekat ===');
+  whitespace.forEach(cand=>{
+    const review = cand.review_count || 0;
+    const rating = cand.rating || 0;
+    const reviewScore = Math.min(review/20, 1);
+    const ratingScore = rating ? rating/5 : 0.5;
+    let proxScore;
+    if(cand._nearest_active_m===null) proxScore = 0.7;
+    else if(cand._nearest_active_m < 50) proxScore = 0.3;
+    else proxScore = Math.min(cand._nearest_active_m/300, 1);
+    cand._skor = Math.round((reviewScore*0.4 + ratingScore*0.3 + proxScore*0.3)*1000)/1000;
+
+    // toko acuan = outlet terdekat di rute yg sama (sudah dihitung di tahap filter koridor)
+    cand._acuan_outlet = cand._nearest_outlet.kode_outlet;
+    cand._acuan_nama = cand._nearest_outlet.nama_outlet;
+    cand._dist_ke_acuan = Math.round(cand._dist_to_route);
+  });
+
+  // grup per rute, urutkan skor, batasi jumlah
+  const grouped = {};
+  whitespace.forEach(c=>{
+    if(!grouped[c._route_key]) grouped[c._route_key] = [];
+    grouped[c._route_key].push(c);
+  });
+  Object.keys(grouped).forEach(key=>{
+    grouped[key] = grouped[key].sort((a,b)=>b._skor-a._skor).slice(0,MAX_CAND);
+  });
+
+  const finalList = Object.values(grouped).flat().sort((a,b)=> a._route_key.localeCompare(b._route_key) || b._skor-a._skor);
+  log(`Kandidat final setelah dibatasi maks ${MAX_CAND}/rute: ${finalList.length}`);
+  log('\nSelesai. Lihat hasil di bawah.');
+
+  pipelineResult = { finalList, summary:{ whitespace:whitespace.length, reaktivasi:reaktivasi.length, buangDup:buangDup.length } };
+  renderResult();
+}
+
+function renderResult(){
+  const { finalList, summary } = pipelineResult;
+  document.getElementById('result-section').style.display = 'block';
+
+  document.getElementById('summary').innerHTML = `
+    <div class="pill ws"><span class="n">${finalList.length}</span>Kandidat whitespace final</div>
+    <div class="pill re"><span class="n">${summary.reaktivasi}</span>Match dormant (bukan whitespace)</div>
+    <div class="pill dup"><span class="n">${summary.buangDup}</span>Dibuang (duplikat aktif)</div>
+  `;
+
+  if(finalList.length===0){
+    document.getElementById('table-wrap').innerHTML = '<p class="empty-note">Gak ada kandidat lolos. Coba longgarin parameter atau cek data POI-nya.</p>';
+    return;
+  }
+
+  let rows = finalList.map(c=>`
+    <tr>
+      <td>${c._route_key}</td>
+      <td>${c.nama}</td>
+      <td><span class="tag">dekat "${c._acuan_nama}"</span></td>
+      <td>${c._dist_ke_acuan} m</td>
+      <td>${c._nearest_active_m ? Math.round(c._nearest_active_m)+' m' : '-'}</td>
+      <td class="score">${c._skor}</td>
+    </tr>`).join('');
+
+  document.getElementById('table-wrap').innerHTML = `
+    <table>
+      <thead><tr><th>Rute (GAB)</th><th>Nama kandidat</th><th>Toko acuan terdekat</th><th>Jarak ke acuan</th><th>Jarak ke outlet aktif</th><th>Skor</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+document.getElementById('dl-json').addEventListener('click', ()=>{
+  if(!pipelineResult) return;
+  const grouped = {};
+  pipelineResult.finalList.forEach(c=>{
+    if(!grouped[c._route_key]) grouped[c._route_key] = [];
+    grouped[c._route_key].push({
+      nama:c.nama, lat:c.lat, lng:c.lng,
+      acuan_kode_outlet:c._acuan_outlet,
+      acuan_nama_outlet:c._acuan_nama,
+      dist_ke_acuan_m:c._dist_ke_acuan,
+      nearest_active_m:c._nearest_active_m,
+      skor:c._skor
+    });
+  });
+  const blob = new Blob([JSON.stringify(grouped,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'noo_whitespace_hasil.json';
+  a.click();
+});
+
+document.getElementById('dl-csv').addEventListener('click', ()=>{
+  if(!pipelineResult) return;
+  const csv = Papa.unparse(pipelineResult.finalList.map(c=>({
+    rute:c._route_key, nama:c.nama, lat:c.lat, lng:c.lng,
+    acuan_kode_outlet:c._acuan_outlet,
+    acuan_nama_outlet:c._acuan_nama,
+    dist_ke_acuan_m:c._dist_ke_acuan,
+    nearest_active_m:c._nearest_active_m,
+    skor:c._skor
+  })));
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'noo_whitespace_hasil.csv';
+  a.click();
+});
+</script>
+</body>
+</html>

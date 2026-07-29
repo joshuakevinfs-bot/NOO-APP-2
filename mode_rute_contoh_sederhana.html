@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mode Rute — Contoh Sederhana</title>
+<style>
+  :root{
+    --ink:#1c2321; --ink-soft:#5b655f; --line:#e2e5df; --paper:#fbfaf6; --card:#ffffff;
+    --go:#2f6b4f; --go-bg:#e7f1ea; --new:#2a5a7a; --new-bg:#e7eff5;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; display:flex; justify-content:center;}
+  .phone{width:100%; max-width:420px; min-height:100vh; background:var(--paper); padding-bottom:30px;}
+  .topbar{padding:16px 18px 14px; border-bottom:1px solid var(--line);}
+  .topbar .label{font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; font-weight:600;}
+  .topbar h1{font-size:18px; margin:4px 0 0; font-weight:600;}
+  .path{padding:18px 18px 0;}
+
+  .row{display:flex; gap:12px;}
+  .connector{display:flex; flex-direction:column; align-items:center; width:32px; flex-shrink:0;}
+  .connector .circle{width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; z-index:1;}
+  .connector .line{width:2px; flex:1; background:var(--line); margin:2px 0;}
+  .circle.normal{background:var(--line); color:var(--ink-soft);}
+  .circle.noo{background:var(--new); color:#fff;}
+
+  .content{flex:1; padding-bottom:22px;}
+  .card-normal{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:13px 14px;}
+  .card-normal .t{font-size:14px; font-weight:600; margin:0 0 2px;}
+  .card-normal .s{font-size:12px; color:var(--ink-soft); margin:0;}
+  .card-normal .tag{display:inline-block; font-size:10.5px; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line); padding:2px 8px; border-radius:20px; margin-top:6px;}
+
+  .card-noo{background:var(--new-bg); border:1px solid #c9dae5; border-radius:14px; padding:15px;}
+  .card-noo .badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; background:var(--new); color:#fff; margin-bottom:9px;}
+  .card-noo .t{font-size:16px; font-weight:600; margin:0 0 3px; color:#193c52;}
+  .card-noo .s{font-size:12.5px; color:var(--ink-soft); margin:0 0 10px;}
+  .card-noo .why{background:#ffffffb0; border-radius:9px; padding:9px 11px; font-size:12px; color:#193c52; line-height:1.5;}
+  .card-noo .why b{font-weight:600;}
+
+  .explain{margin:22px 18px 0; background:var(--card); border:1px dashed var(--line); border-radius:12px; padding:14px;}
+  .explain p{font-size:12.5px; color:var(--ink-soft); line-height:1.6; margin:0;}
+  .explain b{color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <div class="label">Mode Rute — contoh sederhana</div>
+    <h1>Toko biasa, diselipin kandidat NOO</h1>
+  </div>
+
+  <div class="path">
+
+    <div class="row">
+      <div class="connector">
+        <div class="circle normal">1</div>
+        <div class="line"></div>
+      </div>
+      <div class="content">
+        <div class="card-normal">
+          <p class="t">Toko A</p>
+          <p class="s">Toko JKS biasa — kunjungan normal</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="connector">
+        <div class="circle noo">✦</div>
+        <div class="line"></div>
+      </div>
+      <div class="content">
+        <div class="card-noo">
+          <span class="badge">✦ POTENSI NOO</span>
+          <p class="t">Toko B</p>
+          <p class="s">📍 90 m dari Toko A — muncul karena longlat-nya paling deket ke sini</p>
+          <div class="why"><b>Kenapa muncul di sini:</b> setelah Toko A selesai, sistem cek — kandidat NOO mana yang paling deket lokasinya. Toko B paling deket, jadi nempel setelah Toko A, bukan di posisi tetap/nomor urut.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="connector">
+        <div class="circle normal">2</div>
+        <div class="line"></div>
+      </div>
+      <div class="content">
+        <div class="card-normal">
+          <p class="t">Toko C</p>
+          <p class="s">Toko JKS biasa — lanjut kunjungan normal</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="connector">
+        <div class="circle normal">3</div>
+      </div>
+      <div class="content">
+        <div class="card-normal">
+          <p class="t">Toko D</p>
+          <p class="s">Toko JKS biasa — dst.</p>
+          <span class="tag">Gak semua toko punya kandidat nempel</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="explain">
+    <p><b>Intinya:</b> sales jalan normal kayak biasa (A → B → C → D...). Kandidat NOO cuma nyempil kalau kebetulan ada yang longlat-nya deket sama salah satu toko JKS. Gak semua toko punya "sisipan" — di contoh ini cuma Toko A yang punya, karena kebetulan Toko B (kandidat) paling deket ke situ. Toko C dan D gak ada sisipan karena emang gak ada kandidat di dekat mereka.</p>
+  </div>
+</div>
+</body>
+</html>

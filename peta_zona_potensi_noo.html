@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Peta Zona Potensi NOO — Nabati</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{ --ink:#1c2321; --ink-soft:#5b655f; --line:#e2e5df; --paper:#fbfaf6; --go:#2f6b4f; --danger:#a53838; }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; display:flex; justify-content:center;}
+  .phone{width:100%; max-width:420px; min-height:100vh; background:var(--paper); position:relative;}
+  .topbar{padding:14px 16px 12px; border-bottom:1px solid var(--line); position:relative; z-index:20; background:var(--paper);}
+  .topbar h1{font-size:17px; margin:0 0 6px; font-weight:600;}
+  .legend{display:flex; gap:14px; font-size:11.5px; color:var(--ink-soft);}
+  .legend span{display:flex; align-items:center; gap:5px;}
+  .dot{width:10px; height:10px; border-radius:50%; display:inline-block;}
+  .dot.active{background:var(--go);}
+  .dot.zone{width:14px; height:10px; border-radius:2px; background:#fff3c4; border:1.5px solid #d4a900;}
+  #map{width:100%; height:calc(100vh - 76px);}
+  .leaflet-popup-content{font-family:inherit; font-size:12.5px;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <h1>Zona Potensi NOO — Baning Kota</h1>
+    <div class="legend">
+      <span><span class="dot active"></span>Toko aktif Nabati</span>
+      <span><span class="dot zone"></span>Zona skor tinggi</span>
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script>
+const ZONE_POLYGON = [
+  [-0.2795,111.5985],[-0.2775,111.6005],[-0.2760,111.6010],
+  [-0.2755,111.6035],[-0.2790,111.6040],[-0.2810,111.6015],[-0.2795,111.5985]
+];
+const ACTIVE_OUTLETS = [
+  {nama:"Toko Restu", lat:-0.2820, lng:111.5940},
+  {nama:"Harapan Jaya, TK", lat:-0.2830, lng:111.5960},
+  {nama:"Sahabat Jaya, TK", lat:-0.2825, lng:111.5985},
+  {nama:"Hariono, TK", lat:-0.2760, lng:111.5960},
+  {nama:"Citra Ceria, TK", lat:-0.2890, lng:111.6040},
+  {nama:"Alex Karya, TK", lat:-0.2895, lng:111.6060},
+];
+
+const map = L.map('map', {zoomControl:false}).setView([-0.2825,111.6000], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'&copy; OpenStreetMap contributors', maxZoom:19
+}).addTo(map);
+L.control.zoom({position:'bottomright'}).addTo(map);
+
+L.polygon(ZONE_POLYGON, {color:'#d4a900', weight:2, fillColor:'#fff3c4', fillOpacity:0.55})
+  .addTo(map)
+  .bindPopup('<b>Zona skor tinggi</b><br>Skor Peluang: 82<br>Estimasi penduduk padat, toko aktif Nabati masih sedikit di sini.');
+
+const greenIcon = L.divIcon({
+  html:'<div style="width:16px;height:16px;border-radius:50% 50% 50% 0;background:#2f6b4f;border:2px solid #fff;transform:rotate(-45deg);box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>',
+  className:'', iconSize:[16,16], iconAnchor:[8,16]
+});
+ACTIVE_OUTLETS.forEach(o=>{
+  L.marker([o.lat,o.lng], {icon:greenIcon}).addTo(map).bindPopup(`<b>${o.nama}</b><br>Toko aktif Nabati`);
+});
+
+const bounds = L.latLngBounds(ZONE_POLYGON.concat(ACTIVE_OUTLETS.map(o=>[o.lat,o.lng])));
+map.fitBounds(bounds, {padding:[30,30]});
+</script>
+</body>
+</html>
