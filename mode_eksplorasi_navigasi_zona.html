@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mode Eksplorasi — Nabati</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --ink:#1c2321; --ink-soft:#5b655f; --line:#e2e5df; --paper:#fbfaf6; --card:#ffffff;
+    --go:#2f6b4f; --go-bg:#e7f1ea; --new:#2a5a7a; --new-bg:#e7eff5;
+    --danger:#a53838; --danger-bg:#f7e8e6; --warn:#a3521f;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; display:flex; justify-content:center;}
+  .phone{width:100%; max-width:420px; min-height:100vh; background:var(--paper); position:relative;}
+  button{font-family:inherit; border:none; cursor:pointer;}
+  .sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);}
+
+  #screenPicker{padding:16px; border-bottom:1px solid var(--line);}
+  #screenPicker h1{font-size:15px; margin:0 0 10px; font-weight:500;}
+  .picker-row{display:flex; gap:8px; margin-bottom:14px;}
+  .picker-row input{flex:1; border:1px solid var(--line); border-radius:9px; padding:9px 11px; font-size:13.5px; font-family:inherit;}
+  .picker-row button{background:var(--ink); color:#fff; border-radius:9px; padding:9px 14px; font-size:13px; font-weight:600;}
+  #routeList{display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto;}
+  .route-btn{text-align:left; border-radius:10px; padding:11px 13px; font-family:inherit; cursor:pointer; width:100%; border:1px solid var(--line);}
+  .route-btn .row{display:flex; justify-content:space-between; align-items:center;}
+  .route-btn .name{font-size:13.5px; font-weight:500; color:var(--ink);}
+  .route-btn .badge{font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:20px; color:#fff;}
+  .route-btn .sub{margin:4px 0 0; font-size:11.5px; color:var(--ink-soft);}
+
+  #screenMap{display:none;}
+  .topbar{padding:12px 16px 10px; border-bottom:1px solid var(--line); background:var(--paper); position:relative; z-index:20;}
+  .topbar h1{font-size:16px; margin:0 0 6px; font-weight:500;}
+  .legend{display:flex; gap:10px; font-size:10.5px; color:var(--ink-soft); flex-wrap:wrap;}
+  .legend span{display:flex; align-items:center; gap:4px;}
+  #map{width:100%; height:calc(100vh - 76px);}
+  .leaflet-popup-content{font-family:inherit; font-size:12.5px;}
+
+  .nav-float{position:absolute; top:12px; left:12px; right:12px; z-index:25; background:#fff; border-radius:14px; padding:12px 14px; box-shadow:0 4px 16px rgba(0,0,0,.12); display:flex; align-items:center; gap:12px;}
+  .nav-float.hidden{display:none;}
+  .compass-mini{width:44px; height:44px; border-radius:50%; background:#eef0e9; border:1px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:center;}
+  .arrow-mini{font-size:20px; color:var(--danger); transition:transform .5s ease; display:inline-block;}
+  .nav-text{flex:1;}
+  .nav-text .dist{font-size:17px; font-weight:600; margin:0;}
+  .nav-text .lbl{font-size:11px; color:var(--ink-soft); margin:1px 0 0;}
+
+  .sweep-float{position:absolute; top:12px; left:12px; right:12px; z-index:25; background:#fff; border-radius:14px; padding:12px 14px; box-shadow:0 4px 16px rgba(0,0,0,.12); display:none;}
+  .sweep-float.show{display:block;}
+  .sweep-float .t{font-size:13px; font-weight:500; margin:0 0 8px;}
+  .progress-track{height:6px; border-radius:3px; background:var(--line); overflow:hidden;}
+  .progress-fill{height:100%; background:var(--go); width:0%; transition:width .3s;}
+  .progress-label{font-size:11px; color:var(--ink-soft); margin-top:6px; text-align:right;}
+
+  .status-note{position:absolute; bottom:70px; left:12px; right:12px; z-index:25; background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 11px; font-size:10.5px; color:var(--ink-soft); text-align:center;}
+
+  .fab{position:absolute; right:16px; bottom:16px; z-index:25; width:54px; height:54px; border-radius:50%; background:var(--ink); color:#fff; display:none; align-items:center; justify-content:center; font-size:24px; box-shadow:0 4px 14px rgba(0,0,0,.25);}
+  .fab.show{display:flex;}
+  .stat-bar{position:absolute; left:16px; bottom:16px; z-index:25; background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px 12px; font-size:11.5px; box-shadow:0 4px 10px rgba(0,0,0,.08); display:none;}
+  .stat-bar.show{display:block;}
+  .stat-bar b{font-size:15px; display:block;}
+
+  .sheet-overlay{position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:50; display:none; align-items:flex-end; justify-content:center;}
+  .sheet-overlay.show{display:flex;}
+  .sheet{width:100%; max-width:420px; background:var(--card); border-radius:18px 18px 0 0; padding:18px 18px calc(18px + env(safe-area-inset-bottom)); animation:slideUp .25s ease;}
+  @keyframes slideUp{from{transform:translateY(30px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .sheet h3{margin:0 0 4px; font-size:16px; font-weight:600;}
+  .sheet .sub{font-size:12.5px; color:var(--ink-soft); margin:0 0 14px;}
+  .field{margin-bottom:12px;}
+  .field label{font-size:12px; color:var(--ink-soft); display:block; margin-bottom:5px;}
+  .field input[type=text]{width:100%; border:1px solid var(--line); border-radius:9px; padding:10px 12px; font-size:14px; font-family:inherit;}
+  .cam-btn{width:100%; background:var(--ink); color:#fff; border-radius:10px; padding:12px; font-size:13.5px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:10px;}
+  .gps-row{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft); background:var(--go-bg); border-radius:9px; padding:9px 11px; margin-bottom:14px;}
+  .gps-row.pending{background:var(--danger-bg); color:var(--warn);}
+  .dot-live{width:8px; height:8px; border-radius:50%; background:var(--go); flex-shrink:0;}
+  .gps-row.pending .dot-live{background:var(--warn);}
+  .thumb-preview{width:100%; height:130px; border-radius:10px; object-fit:cover; margin-bottom:10px; background:#eee;}
+  .submit-btn{width:100%; background:var(--go); color:#fff; border-radius:10px; padding:13px; font-size:14px; font-weight:600;}
+  .submit-btn:disabled{opacity:.4;}
+  .cancel-btn{width:100%; background:none; color:var(--ink-soft); padding:10px; font-size:13px; margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="phone">
+<h1 class="sr-only">Mode eksplorasi: pilih rute, lihat semua toko JKS dari rute-rute yang match zona ATE, dituntun ke peta OSM asli menuju zona</h1>
+
+<div id="screenPicker">
+  <h1>Pilih rute hari ini</h1>
+  <div class="picker-row">
+    <input type="text" id="salesInput" placeholder="Kode sales (misal: RENDI)">
+    <button id="salesSubmitBtn">Tampilkan</button>
+  </div>
+  <div id="routeList"></div>
+</div>
+
+<div id="screenMap">
+  <div class="topbar">
+    <h1 id="zoneTitleText">Zona ATE</h1>
+    <div class="legend" id="legendRow">
+      <span><span style="width:12px;height:8px;border-radius:2px;background:#fff3c4;border:1px solid #d4a900;display:inline-block;"></span><span id="zoneLegendText">Zona ATE</span></span>
+      <span>▲ Kamu</span>
+    </div>
+  </div>
+  <div id="map"></div>
+
+  <div class="nav-float" id="navFloat">
+    <div class="compass-mini"><span class="arrow-mini" id="arrowIcon">▲</span></div>
+    <div class="nav-text">
+      <p class="dist" id="distText">-- m</p>
+      <p class="lbl" id="statusText">Menyalakan GPS...</p>
+    </div>
+  </div>
+
+  <div class="sweep-float" id="sweepFloat">
+    <p class="t">✓ Kamu di dalam zona — sisir area ini</p>
+    <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+    <p class="progress-label" id="progLabel">0 / 9 area</p>
+  </div>
+
+  <div class="status-note" id="statusNote"></div>
+
+  <div class="stat-bar" id="statBar"><b id="statNew">0</b>Toko baru dicatat</div>
+  <button class="fab" id="fab">+</button>
+</div>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay">
+  <div class="sheet">
+    <h3>Daftar toko baru</h3>
+    <p class="sub">Toko yang kamu temukan sendiri pas jalan, belum ada di sistem.</p>
+    <div class="gps-row pending" id="gpsRow"><span class="dot-live"></span><span id="gpsText">Mengambil lokasi kamu...</span></div>
+    <div class="field"><label>Nama toko</label><input type="text" id="inputNama" placeholder="misal: Warung Bu Ida"></div>
+    <input type="file" accept="image/*" capture="environment" style="display:none" id="fileInput">
+    <img class="thumb-preview" id="thumbPreview" style="display:none;">
+    <button class="cam-btn" id="camBtn">📷 Ambil foto toko</button>
+    <button class="submit-btn" id="submitBtn" disabled>Kirim ke sistem</button>
+    <button class="cancel-btn" id="cancelBtn">Batal</button>
+  </div>
+</div>
+
+<script>
+const WEBAPP_URL = "GANTI_URL_INI";
+function sendToBackend(sheetType, payload){
+  if(WEBAPP_URL === "GANTI_URL_INI"){ console.warn("Backend belum disetup:", sheetType, payload); return; }
+  fetch(WEBAPP_URL, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain"}, body:JSON.stringify({type:sheetType, payload})}).catch(e=>console.error(e));
+}
+
+let SALES_KODE = localStorage.getItem('noo_sales_kode') || '';
+
+const ATE_ASSIGNMENT = {"RENDI||M2C13-R01": {"sales": "RENDI", "rute": "M2C13-R01", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 0.0}, "RENDI||M2C13-R02": {"sales": "RENDI", "rute": "M2C13-R02", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 0.58}, "RENDI||M2C13-R03": {"sales": "RENDI", "rute": "M2C13-R03", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 0.08}, "RENDI||M2C13-R04": {"sales": "RENDI", "rute": "M2C13-R04", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 0.72}, "RENDI||M2C13-R05": {"sales": "RENDI", "rute": "M2C13-R05", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 1.76}, "RENDI||M2C13-R06": {"sales": "RENDI", "rute": "M2C13-R06", "ate_zona": null, "jarak_km": 2.36}, "RENDI||M2C24-R01": {"sales": "RENDI", "rute": "M2C24-R01", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 0.0}, "RENDI||M2C24-R02": {"sales": "RENDI", "rute": "M2C24-R02", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 0.31}, "RENDI||M2C24-R03": {"sales": "RENDI", "rute": "M2C24-R03", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 0.96}, "RENDI||M2C24-R04": {"sales": "RENDI", "rute": "M2C24-R04", "ate_zona": null, "jarak_km": 2.25}, "RENDI||M2C24-R05": {"sales": "RENDI", "rute": "M2C24-R05", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 0.0}, "RENDI||M2C24-R06": {"sales": "RENDI", "rute": "M2C24-R06", "ate_zona": null, "jarak_km": 4.1}, "SITI||M2C13-R01": {"sales": "SITI", "rute": "M2C13-R01", "ate_zona": null, "jarak_km": 2.73}, "SITI||M2C13-R02": {"sales": "SITI", "rute": "M2C13-R02", "ate_zona": {"depo": "BALIKPAPAN", "kecamatan": "Balikpapan Barat", "kab_kota": "Balikpapan", "additional_cb_noo": 71, "additional_produktif": 39, "opportunity_segment": "OPTIMIZE EXISTING", "confidence": "HIGH", "skor_prioritas": 71.0, "aksi_lapangan": "EKSPANSI NOO - PRIORITAS 1", "zone_bounds": {"west": 116.71616360000007, "south": -1.24154429999993, "east": 116.89164770000002, "north": -1.040710399999966}, "zone_center": {"lat": -1.127944, "lng": 116.801037}, "polygon": [[-1.241544, 116.832533], [-1.235764, 116.791863], [-1.212144, 116.766435], [-1.18761, 116.775293], [-1.138549, 116.756925], [-1.120821, 116.723765], [-1.109799, 116.716164], [-1.086057, 116.731496], [-1.075594, 116.726805], [-1.066503, 116.729596], [-1.073778, 116.739481], [-1.071413, 116.749609], [-1.075623, 116.759522], [-1.060138, 116.770935], [-1.04071, 116.776123], [-1.045569, 116.794456], [-1.058103, 116.806235], [-1.055451, 116.822961], [-1.045987, 116.837176], [-1.058491, 116.860587], [-1.055451, 116.881871], [-1.060396, 116.891648], [-1.095737, 116.861347], [-1.150086, 116.832082], [-1.157307, 116.839304], [-1.166429, 116.833603], [-1.178971, 116.849565], [-1.183417, 116.837351], [-1.192735, 116.843303], [-1.199096, 116.84272], [-1.200297, 116.837453], [-1.207587, 116.841581], [-1.211795, 116.828015], [-1.226081, 116.830469], [-1.22755, 116.834338], [-1.236364, 116.829338], [-1.241544, 116.832533]]}, "jarak_km": 1.64}, "SITI||M2C13-R03": {"sales": "SITI", "rute": "M2C13-R03", "ate_zona": null, "jarak_km": 3.62}, "SITI||M2C13-R04": {"sales": "SITI", "rute": "M2C13-R04", "ate_zona": null, "jarak_km": 5.62}, "SITI||M2C13-R05": {"sales": "SITI", "rute": "M2C13-R05", "ate_zona": null, "jarak_km": 8.59}, "SITI||M2C13-R06": {"sales": "SITI", "rute": "M2C13-R06", "ate_zona": null, "jarak_km": 9.68}, "SITI||M2C24-R01": {"sales": "SITI", "rute": "M2C24-R01", "ate_zona": null, "jarak_km": 2.02}, "SITI||M2C24-R02": {"sales": "SITI", "rute": "M2C24-R02", "ate_zona": null, "jarak_km": 2.62}, "SITI||M2C24-R03": {"sales": "SITI", "rute": "M2C24-R03", "ate_zona": null, "jarak_km": 4.68}, "SITI||M2C24-R04": {"sales": "SITI", "rute": "M2C24-R04", "ate_zona": null, "jarak_km": 7.27}, "SITI||M2C24-R05": {"sales": "SITI", "rute": "M2C24-R05", "ate_zona": null, "jarak_km": 10.07}, "SITI||M2C24-R06": {"sales": "SITI", "rute": "M2C24-R06", "ate_zona": null, "jarak_km": 12.98}};
+const ROUTE_OUTLETS = {"RENDI||M2C13-R01": [{"nama": "84 CELL", "lat": -1.227438, "lng": 116.814161}, {"nama": "RAHMAWATI", "lat": -1.227438, "lng": 116.814161}, {"nama": "RISQI JAYA, TK", "lat": -1.222765, "lng": 116.817417}, {"nama": "SUGIANUR", "lat": -1.222763, "lng": 116.814943}, {"nama": "KURNIA, TK", "lat": -1.226322, "lng": 116.817145}, {"nama": "SANDRANG. H, TK", "lat": -1.222743, "lng": 116.813138}, {"nama": "DELA JAYA, TK", "lat": -1.234298, "lng": 116.81557}, {"nama": "RENI, TK", "lat": -1.223194, "lng": 116.810173}, {"nama": "REVDHAN, TK", "lat": -1.221981, "lng": 116.81519}, {"nama": "BAROKAH, TK", "lat": -1.228748, "lng": 116.818348}, {"nama": "TOKO SAHIRA", "lat": -1.226322, "lng": 116.817145}, {"nama": "TOKO ADITYA", "lat": -1.221115, "lng": 116.811502}, {"nama": "KOP. CPL", "lat": -1.230847, "lng": 116.813441}, {"nama": "HOKI JAYA KP. BARU", "lat": -1.231605, "lng": 116.813304}, {"nama": "INDRADI / CANTIK", "lat": -1.235162, "lng": 116.815808}, {"nama": "REZKY", "lat": -1.221514, "lng": 116.824871}, {"nama": "STEVI", "lat": -1.226726, "lng": 116.811957}, {"nama": "KIOS AZZAM", "lat": -1.223457, "lng": 116.810245}, {"nama": "AL MARWAH", "lat": -1.231831, "lng": 116.812962}, {"nama": "BUANA JAYA 02", "lat": -1.227113, "lng": 116.817433}, {"nama": "DEWI AFATAR", "lat": -1.228838, "lng": 116.818373}], "RENDI||M2C13-R02": [{"nama": "HERMAN 2, TK", "lat": -1.240309, "lng": 116.837645}, {"nama": "TOKO BU ANGGA", "lat": -1.241075, "lng": 116.838257}, {"nama": "ATIN", "lat": -1.246719, "lng": 116.841021}, {"nama": "BELIMBING INDAH", "lat": -1.247095, "lng": 116.833052}, {"nama": "DICKY / NOVAL", "lat": -1.246869, "lng": 116.833971}, {"nama": "VITA RIA", "lat": -1.249462, "lng": 116.834664}, {"nama": "VIRA", "lat": -1.243433, "lng": 116.841086}, {"nama": "VIVI, TK", "lat": -1.24773, "lng": 116.837795}, {"nama": "IBU DEWI, TK", "lat": -1.243085, "lng": 116.841051}, {"nama": "ANUGERAH, TK", "lat": -1.25229, "lng": 116.830107}, {"nama": "ALIKA, TK", "lat": -1.244333, "lng": 116.839631}, {"nama": "ANDRY", "lat": -1.250324, "lng": 116.83333}, {"nama": "SANTI", "lat": -1.245088, "lng": 116.844695}, {"nama": "JAMALUDIN, TK", "lat": -1.243176, "lng": 116.837943}, {"nama": "ANOM, TK", "lat": -1.244694, "lng": 116.846653}, {"nama": "BONE BRADAT 02", "lat": -1.244538, "lng": 116.846435}, {"nama": "HANUM TOKO", "lat": -1.245689, "lng": 116.836885}, {"nama": "MILLENIAL JAYA", "lat": -1.249769, "lng": 116.834112}, {"nama": "WARUNG DINA", "lat": -1.249926, "lng": 116.833891}, {"nama": "MULYADI", "lat": -1.250439, "lng": 116.832974}, {"nama": "ELVINA", "lat": -1.245953, "lng": 116.842935}], "RENDI||M2C13-R03": [{"nama": "CAHAYA TERANG", "lat": -1.227524, "lng": 116.840499}, {"nama": "RINA", "lat": -1.224059, "lng": 116.839388}, {"nama": "SASA", "lat": -1.222509, "lng": 116.846439}, {"nama": "IMAM, TK", "lat": -1.228615, "lng": 116.842537}, {"nama": "KETUPAT MAKASAR", "lat": -1.219087, "lng": 116.843312}, {"nama": "RAHMAT JAYA", "lat": -1.213561, "lng": 116.839125}, {"nama": "ANISA SENGKANG, TK", "lat": -1.215091, "lng": 116.839951}, {"nama": "SAFITRI, TK", "lat": -1.209554, "lng": 116.83754}, {"nama": "LABID", "lat": -1.224792, "lng": 116.83968}, {"nama": "SALAMIN", "lat": -1.21806, "lng": 116.843825}, {"nama": "NABILA", "lat": -1.227046, "lng": 116.842128}, {"nama": "TOKO LINA", "lat": -1.217556, "lng": 116.84386}, {"nama": "RIMA", "lat": -1.22742, "lng": 116.840637}, {"nama": "DENNY", "lat": -1.228464, "lng": 116.840117}, {"nama": "AINA", "lat": -1.213195, "lng": 116.838986}, {"nama": "NUR AFIAH", "lat": -1.213018, "lng": 116.838986}, {"nama": "AURA NUR", "lat": -1.223753, "lng": 116.845507}, {"nama": "JUMIATIUN", "lat": -1.219418, "lng": 116.835267}, {"nama": "AIRLANGGA HOME SNACK", "lat": -1.212012, "lng": 116.839158}], "RENDI||M2C13-R04": [{"nama": "MATLAK, TK", "lat": -1.211241, "lng": 116.857288}, {"nama": "VINA, TK", "lat": -1.206366, "lng": 116.861625}, {"nama": "SITA, TK", "lat": -1.213277, "lng": 116.845932}, {"nama": "RANI, TK", "lat": -1.22259, "lng": 116.858039}, {"nama": "TENS, TK", "lat": -1.223198, "lng": 116.858239}, {"nama": "PAK MUHALI, TK", "lat": -1.211547, "lng": 116.854941}, {"nama": "DEWI, TK", "lat": -1.208944, "lng": 116.849452}, {"nama": "TOKO FATIR", "lat": -1.209925, "lng": 116.848164}, {"nama": "RIZKY 257", "lat": -1.219974, "lng": 116.848511}, {"nama": "ALISYAH", "lat": -1.222118, "lng": 116.857755}, {"nama": "TOKO ZZS", "lat": -1.206314, "lng": 116.864078}, {"nama": "CAHAYA", "lat": -1.206222, "lng": 116.862514}, {"nama": "TOKO ALMAHYRA", "lat": -1.2083, "lng": 116.86244}, {"nama": "TK AKBAR", "lat": -1.21816, "lng": 116.848569}, {"nama": "ALFIN 02", "lat": -1.225944, "lng": 116.861455}, {"nama": "TK NAYLA BAROKAH", "lat": -1.209774, "lng": 116.847642}, {"nama": "LIA RAMAYANA", "lat": -1.220488, "lng": 116.849896}, {"nama": "AURA PERINTIS", "lat": -1.214167, "lng": 116.850323}, {"nama": "TOKO HASANAH FOOD", "lat": -1.206944, "lng": 116.859935}], "RENDI||M2C13-R05": [{"nama": "ROHMAN", "lat": -1.152607, "lng": 116.877583}, {"nama": "AL BAROKAH, TK", "lat": -1.144469, "lng": 116.868592}, {"nama": "ANISA, TK", "lat": -1.150042, "lng": 116.88278}, {"nama": "FAJAR, TK", "lat": -1.157148, "lng": 116.879389}, {"nama": "SUPARTI, TK", "lat": -1.149958, "lng": 116.883415}, {"nama": "HARTAWAN 2, TK", "lat": -1.150724, "lng": 116.877438}, {"nama": "NABILA, TK", "lat": -1.149493, "lng": 116.884564}, {"nama": "TASYA, TOKO", "lat": -1.181835, "lng": 116.867262}, {"nama": "TRI ANNISA, TK", "lat": -1.140446, "lng": 116.865521}, {"nama": "TOSERBA,SELLA AKBAR, TK", "lat": -1.157473, "lng": 116.88343}, {"nama": "RAYHAN CELL", "lat": -1.182334, "lng": 116.873015}, {"nama": "TK ATRIAT", "lat": -1.148586, "lng": 116.876932}, {"nama": "KAISAN", "lat": -1.184846, "lng": 116.864249}, {"nama": "TK PUTRI", "lat": -1.182812, "lng": 116.87952}, {"nama": "MEGA PLASTIK", "lat": -1.181305, "lng": 116.879831}, {"nama": "HIDAYAH KM 13", "lat": -1.156346, "lng": 116.878858}, {"nama": "TOKO TRIATA", "lat": -1.181534, "lng": 116.866389}, {"nama": "TK FIRMAN", "lat": -1.169629, "lng": 116.881227}, {"nama": "NOVI KM 11", "lat": -1.182174, "lng": 116.868577}, {"nama": "MAKMUR JAYA", "lat": -1.151685, "lng": 116.877503}, {"nama": "BU YAYU", "lat": -1.182386, "lng": 116.871568}], "RENDI||M2C13-R06": [{"nama": "TRISNO JOYO 2", "lat": -1.198904, "lng": 116.882871}, {"nama": "RISKA, TK", "lat": -1.198535, "lng": 116.88879}, {"nama": "KAMARUDIN", "lat": -1.198878, "lng": 116.880574}, {"nama": "LINTANG, TK", "lat": -1.198877, "lng": 116.880483}, {"nama": "SALMAH, TK", "lat": -1.208578, "lng": 116.88446}, {"nama": "JAYA ABADI", "lat": -1.208674, "lng": 116.872495}, {"nama": "RICA. H", "lat": -1.211915, "lng": 116.86242}, {"nama": "ZIZAH", "lat": -1.209753, "lng": 116.865028}, {"nama": "FITRI, TK", "lat": -1.20796, "lng": 116.875874}, {"nama": "R & R", "lat": -1.198734, "lng": 116.8797}, {"nama": "MUTIARA 99", "lat": -1.209433, "lng": 116.865408}, {"nama": "TOKO SULAWESI", "lat": -1.203694, "lng": 116.883412}, {"nama": "PADA IDI", "lat": -1.198904, "lng": 116.883199}, {"nama": "TK IMEL ISDA 2", "lat": -1.198583, "lng": 116.887761}, {"nama": "TOKO ARBAYAH", "lat": -1.201139, "lng": 116.884596}, {"nama": "NUR LAYLA", "lat": -1.200259, "lng": 116.885823}, {"nama": "TOKO CAHAYA BILQISH", "lat": -1.210958, "lng": 116.863668}, {"nama": "ARHAM", "lat": -1.204489, "lng": 116.889988}], "RENDI||M2C24-R01": [{"nama": "BARON", "lat": -1.238376, "lng": 116.831164}, {"nama": "WAYAN SUKADA", "lat": -1.236498, "lng": 116.829371}, {"nama": "VIKI, TK", "lat": -1.234003, "lng": 116.827078}, {"nama": "FATMAWATI, HJ", "lat": -1.23636, "lng": 116.82828}, {"nama": "AYOO, CELL", "lat": -1.237524, "lng": 116.830257}, {"nama": "NIAR, TK", "lat": -1.230798, "lng": 116.832818}, {"nama": "LIA KILAT", "lat": -1.233964, "lng": 116.826777}, {"nama": "AMIRAH, TK", "lat": -1.237988, "lng": 116.830804}, {"nama": "TK RAHMA", "lat": -1.228405, "lng": 116.825927}, {"nama": "ARISTA 28", "lat": -1.228279, "lng": 116.825688}, {"nama": "BU YATMI, TK", "lat": -1.232557, "lng": 116.829625}, {"nama": "SARAH", "lat": -1.234492, "lng": 116.825925}, {"nama": "RISMA JAYA", "lat": -1.228498, "lng": 116.828292}, {"nama": "SURYA GROSIR", "lat": -1.234353, "lng": 116.819196}, {"nama": "TK RESKY", "lat": -1.235105, "lng": 116.821568}, {"nama": "YULIA GN POLISI", "lat": -1.238617, "lng": 116.831307}, {"nama": "SINAR WAJO", "lat": -1.234453, "lng": 116.826009}, {"nama": "AZRIL JAYA", "lat": -1.233855, "lng": 116.823852}, {"nama": "SAFIRA 1", "lat": -1.229578, "lng": 116.82605}, {"nama": "NANI", "lat": -1.233585, "lng": 116.821761}], "RENDI||M2C24-R02": [{"nama": "MUNARI", "lat": -1.239393, "lng": 116.840034}, {"nama": "ZAIN, TK", "lat": -1.238369, "lng": 116.840231}, {"nama": "NURUL, TK", "lat": -1.23261, "lng": 116.836728}, {"nama": "TK IFA CELL 2", "lat": -1.241295, "lng": 116.846485}, {"nama": "HAJI NADIRAH", "lat": -1.237723, "lng": 116.836765}, {"nama": "45", "lat": -1.237985, "lng": 116.840346}, {"nama": "TOKO ILA", "lat": -1.238606, "lng": 116.843191}, {"nama": "WINDI", "lat": -1.238655, "lng": 116.844276}, {"nama": "TOKO NURUL", "lat": -1.239324, "lng": 116.840009}, {"nama": "Toko Hanum", "lat": -1.237568, "lng": 116.840301}, {"nama": "BERKAH SEJATI", "lat": -1.235273, "lng": 116.839692}, {"nama": "UMI, TK", "lat": -1.235422, "lng": 116.833067}, {"nama": "RAHMAT SALEH", "lat": -1.243369, "lng": 116.846935}, {"nama": "SUMBER REJEKI, TK", "lat": -1.241179, "lng": 116.846761}, {"nama": "ALFIANDANA, TK", "lat": -1.240772, "lng": 116.846114}, {"nama": "SATKHA", "lat": -1.243057, "lng": 116.848275}, {"nama": "TK SUMBER 77", "lat": -1.243099, "lng": 116.848729}, {"nama": "HJ SIDIQ", "lat": -1.235463, "lng": 116.833133}, {"nama": "ASIA JAYA", "lat": -1.244035, "lng": 116.846592}, {"nama": "TK AZKHA 02", "lat": -1.244067, "lng": 116.850335}], "RENDI||M2C24-R03": [{"nama": "YUNI, TK", "lat": -1.234171, "lng": 116.846469}, {"nama": "MUSRIFA, TK", "lat": -1.236103, "lng": 116.853893}, {"nama": "AISYAH, TK", "lat": -1.236944, "lng": 116.856964}, {"nama": "HENY, TK", "lat": -1.234821, "lng": 116.858962}, {"nama": "AAN", "lat": -1.23204, "lng": 116.845312}, {"nama": "TK NUR WASID", "lat": -1.234954, "lng": 116.840044}, {"nama": "RADEYAH", "lat": -1.236118, "lng": 116.858097}, {"nama": "TK POLDI STRAT", "lat": -1.23504, "lng": 116.841306}, {"nama": "AZ'ZAHRA", "lat": -1.238897, "lng": 116.847549}, {"nama": "SKADA MART", "lat": -1.234337, "lng": 116.843924}, {"nama": "TOKO EMMI", "lat": -1.238014, "lng": 116.85412}, {"nama": "TOKO ADEN JAYA", "lat": -1.23488, "lng": 116.8605}, {"nama": "CAHAYA SALAMA 04", "lat": -1.234217, "lng": 116.846927}, {"nama": "MAMA RIO", "lat": -1.230215, "lng": 116.845152}, {"nama": "KEMBAR 88", "lat": -1.227199, "lng": 116.850401}, {"nama": "NUR AMIRA", "lat": -1.227491, "lng": 116.847567}, {"nama": "NASTI", "lat": -1.232904, "lng": 116.848793}, {"nama": "TOKO IKBAL JAYA", "lat": -1.238197, "lng": 116.850997}, {"nama": "MUSTOPO", "lat": -1.240423, "lng": 116.853546}], "RENDI||M2C24-R04": [{"nama": "PAK WITO, TK", "lat": -1.19865, "lng": 116.863154}, {"nama": "OLIVIA, TK", "lat": -1.195267, "lng": 116.869833}, {"nama": "KASMAN, TK", "lat": -1.202899, "lng": 116.864794}, {"nama": "ASSALAM 2", "lat": -1.202624, "lng": 116.873902}, {"nama": "LEFA STORE", "lat": -1.195244, "lng": 116.868381}, {"nama": "AMANAH", "lat": -1.18974, "lng": 116.867476}, {"nama": "MUTIARA", "lat": -1.202802, "lng": 116.864449}, {"nama": "TK EDI", "lat": -1.196198, "lng": 116.866133}, {"nama": "WARUNG SABAR", "lat": -1.200835, "lng": 116.871469}, {"nama": "KARTINI 2", "lat": -1.197811, "lng": 116.865868}, {"nama": "RIDHO 02", "lat": -1.202446, "lng": 116.873796}, {"nama": "TK ROFI RAFAI", "lat": -1.203468, "lng": 116.86771}, {"nama": "TOKO SUMBER USAHA", "lat": -1.1885, "lng": 116.868462}, {"nama": "MAWAR INDAH", "lat": -1.202496, "lng": 116.866362}, {"nama": "Risma Cell", "lat": -1.201857, "lng": 116.863215}, {"nama": "ARETHA", "lat": -1.200955, "lng": 116.863078}, {"nama": "AURORA MART", "lat": -1.203129, "lng": 116.869124}, {"nama": "ABYZAR", "lat": -1.200309, "lng": 116.871587}, {"nama": "H.AMIN BAROKAH", "lat": -1.196275, "lng": 116.86612}], "RENDI||M2C24-R05": [{"nama": "ZIFAH CELL", "lat": -1.191013, "lng": 116.850591}, {"nama": "ASRI, TK", "lat": -1.196361, "lng": 116.849666}, {"nama": "TK ILMI JAYA", "lat": -1.192082, "lng": 116.849304}, {"nama": "NOVAL, TK", "lat": -1.195724, "lng": 116.849021}, {"nama": "AMANDA", "lat": -1.190648, "lng": 116.851037}, {"nama": "JOKO", "lat": -1.176204, "lng": 116.8419}, {"nama": "LUTFI", "lat": -1.194314, "lng": 116.847562}, {"nama": "DUA PUTRI GRAHA, TK", "lat": -1.199471, "lng": 116.85273}, {"nama": "DEPOT.H", "lat": -1.180869, "lng": 116.844042}, {"nama": "RAFA, TK", "lat": -1.202216, "lng": 116.848444}, {"nama": "BINTANG, TK", "lat": -1.179937, "lng": 116.84827}, {"nama": "FAHMI, TK", "lat": -1.193339, "lng": 116.845936}, {"nama": "SUDIMORO", "lat": -1.194005, "lng": 116.846827}, {"nama": "BUSWA", "lat": -1.20132, "lng": 116.855595}, {"nama": "DAMAI", "lat": -1.194005, "lng": 116.846827}, {"nama": "MEDINA", "lat": -1.1785, "lng": 116.853176}, {"nama": "FAISAL", "lat": -1.184156, "lng": 116.852269}, {"nama": "KOPERASI PT PAMA", "lat": -1.202581, "lng": 116.822418}, {"nama": "AZKHA 01", "lat": -1.205334, "lng": 116.854201}], "RENDI||M2C24-R06": [{"nama": "JOYO BOYO", "lat": -1.1873, "lng": 116.885707}, {"nama": "ISTIQOMAH", "lat": -1.188627, "lng": 116.892118}, {"nama": "SUSANTO, TK", "lat": -1.188874, "lng": 116.889969}, {"nama": "WHIEN", "lat": -1.188613, "lng": 116.892256}, {"nama": "ZIZAH, TK", "lat": -1.182889, "lng": 116.897397}, {"nama": "SUCIYATI, TK", "lat": -1.188843, "lng": 116.890245}, {"nama": "AYUNDA, TK", "lat": -1.192104, "lng": 116.895233}, {"nama": "WONG JOWO, TK", "lat": -1.19607, "lng": 116.893307}, {"nama": "TOKO IRFAN", "lat": -1.194609, "lng": 116.88979}, {"nama": "FAJAR", "lat": -1.193661, "lng": 116.889178}, {"nama": "EKA JAYA KM10", "lat": -1.18884, "lng": 116.890336}, {"nama": "DEWI KM 9", "lat": -1.194477, "lng": 116.883109}, {"nama": "ZAHRAA TRANSAD", "lat": -1.196651, "lng": 116.893048}, {"nama": "TK HERMAN", "lat": -1.193744, "lng": 116.897434}, {"nama": "BAROKAH", "lat": -1.189367, "lng": 116.887848}, {"nama": "TK SALSA KM 10", "lat": -1.191538, "lng": 116.8843}, {"nama": "TOKO FARHAN SAFIRA", "lat": -1.195937, "lng": 116.890018}, {"nama": "AIDAN", "lat": -1.195981, "lng": 116.893328}, {"nama": "TOKO SEKUMPUL RAYA", "lat": -1.183909, "lng": 116.896369}], "SITI||M2C13-R01": [{"nama": "EDI. H", "lat": -1.271043, "lng": 116.821656}, {"nama": "EBEN", "lat": -1.274113, "lng": 116.821528}, {"nama": "KARMANI, TK", "lat": -1.265301, "lng": 116.824898}, {"nama": "NONI, IBU", "lat": -1.26769, "lng": 116.823678}, {"nama": "SURABAYA", "lat": -1.274113, "lng": 116.821434}, {"nama": "SANTIKA, TK", "lat": -1.270578, "lng": 116.821877}, {"nama": "NYAWIJI, TK", "lat": -1.270428, "lng": 116.82398}, {"nama": "YESIKA, TK", "lat": -1.268236, "lng": 116.825389}, {"nama": "PUTRA MAROS", "lat": -1.273718, "lng": 116.821169}, {"nama": "FADILAH", "lat": -1.276554, "lng": 116.826316}, {"nama": "HH / NAWAR", "lat": -1.272801, "lng": 116.821325}, {"nama": "PUTRI, TOKO", "lat": -1.272483, "lng": 116.829424}, {"nama": "AIDIL 999 PRAPATAN", "lat": -1.275282, "lng": 116.818393}, {"nama": "ATFAL, TK", "lat": -1.275802, "lng": 116.81187}, {"nama": "ALVARO", "lat": -1.272458, "lng": 116.821427}, {"nama": "AA", "lat": -1.268285, "lng": 116.822956}, {"nama": "OPIK", "lat": -1.269184, "lng": 116.822177}, {"nama": "BASMALLAH 04", "lat": -1.276731, "lng": 116.8252}, {"nama": "HARI JAYA", "lat": -1.277445, "lng": 116.830022}, {"nama": "ALIFA", "lat": -1.275365, "lng": 116.811693}, {"nama": "RIDWAN", "lat": -1.268856, "lng": 116.822657}, {"nama": "RUSDI 09", "lat": -1.276867, "lng": 116.819666}, {"nama": "HOKI NANA", "lat": -1.269555, "lng": 116.823209}], "SITI||M2C13-R02": [{"nama": "CIPTO", "lat": -1.258683, "lng": 116.842457}, {"nama": "FARLAN", "lat": -1.25468, "lng": 116.857644}, {"nama": "SUBINTO", "lat": -1.256693, "lng": 116.847768}, {"nama": "ARIFIN, TK", "lat": -1.254727, "lng": 116.839172}, {"nama": "MARHANA, TK", "lat": -1.255296, "lng": 116.845317}, {"nama": "BU GATOT, TK", "lat": -1.255418, "lng": 116.848804}, {"nama": "TELUR, TK", "lat": -1.256885, "lng": 116.83739}, {"nama": "VIRLY, TK", "lat": -1.258162, "lng": 116.833645}, {"nama": "IFA, CELL", "lat": -1.259423, "lng": 116.840558}, {"nama": "ARJUNA, TK", "lat": -1.254799, "lng": 116.843862}, {"nama": "VIRA ALVIN, TK", "lat": -1.259389, "lng": 116.831533}, {"nama": "YANTI SUL SEL", "lat": -1.256759, "lng": 116.837999}, {"nama": "TK.MATTOHA", "lat": -1.255238, "lng": 116.848793}, {"nama": "IWAN", "lat": -1.251501, "lng": 116.851657}, {"nama": "TK AN NAHL", "lat": -1.246772, "lng": 116.855193}, {"nama": "SUTARMO", "lat": -1.245967, "lng": 116.856494}, {"nama": "AL KAYYIS MART", "lat": -1.254011, "lng": 116.854708}, {"nama": "AVIRA", "lat": -1.254914, "lng": 116.83978}, {"nama": "TOKO ANJAS", "lat": -1.259154, "lng": 116.841183}, {"nama": "MEGATAMA", "lat": -1.257803, "lng": 116.846868}, {"nama": "ABAIL 2", "lat": -1.252993, "lng": 116.844273}], "SITI||M2C13-R03": [{"nama": "ALDO", "lat": -1.248032, "lng": 116.867492}, {"nama": "FATUR", "lat": -1.264468, "lng": 116.861707}, {"nama": "ROKAYA", "lat": -1.253775, "lng": 116.863154}, {"nama": "RIZKI DAMAI, TK", "lat": -1.259932, "lng": 116.862568}, {"nama": "SUMBER ARTO, TK", "lat": -1.261535, "lng": 116.858288}, {"nama": "UTOYO, TK", "lat": -1.261034, "lng": 116.861425}, {"nama": "HAIKAL, TK", "lat": -1.264748, "lng": 116.85777}, {"nama": "MITRA MANDIRI, TK", "lat": -1.26608, "lng": 116.860208}, {"nama": "SALEMO", "lat": -1.268367, "lng": 116.876991}, {"nama": "HENDRI ABU ADIT, TK", "lat": -1.262975, "lng": 116.858358}, {"nama": "DIMAS ,TK", "lat": -1.247911, "lng": 116.867483}, {"nama": "R.ALIF, TK", "lat": -1.264575, "lng": 116.863355}, {"nama": "BU JOKO, TK", "lat": -1.264511, "lng": 116.863421}, {"nama": "ARSYAM, TK", "lat": -1.264998, "lng": 116.859009}, {"nama": "RINTA, TK", "lat": -1.272257, "lng": 116.877774}, {"nama": "TOKO FAKHRUL", "lat": -1.264806, "lng": 116.862202}, {"nama": "TK NURSYAM JAYA", "lat": -1.26875, "lng": 116.8766}, {"nama": "FAISAL,TK", "lat": -1.265049, "lng": 116.862736}, {"nama": "TOKO AFIKA", "lat": -1.264619, "lng": 116.864634}, {"nama": "ARFAN", "lat": -1.274394, "lng": 116.87127}, {"nama": "IMEL,ISDA", "lat": -1.258523, "lng": 116.862967}], "SITI||M2C13-R04": [{"nama": "FAUZI", "lat": -1.236817, "lng": 116.897544}, {"nama": "HASNAH. H", "lat": -1.24138, "lng": 116.893445}, {"nama": "RAHMA", "lat": -1.240937, "lng": 116.897977}, {"nama": "MONALISA, TK", "lat": -1.237712, "lng": 116.884953}, {"nama": "NAYLA, TK", "lat": -1.241003, "lng": 116.894332}, {"nama": "JAFAR, TK", "lat": -1.236754, "lng": 116.897549}, {"nama": "FANI, TK", "lat": -1.235276, "lng": 116.899619}, {"nama": "SANI, TK", "lat": -1.24155, "lng": 116.897328}, {"nama": "INDIKU, CELL", "lat": -1.242658, "lng": 116.888525}, {"nama": "MAMA DINA, TK", "lat": -1.243042, "lng": 116.887764}, {"nama": "EKO JAYA, TK", "lat": -1.242894, "lng": 116.88723}, {"nama": "AISYAH, TK", "lat": -1.238506, "lng": 116.885005}, {"nama": "ALIKA, TK", "lat": -1.229921, "lng": 116.895923}, {"nama": "DHARMA MULIA, TK", "lat": -1.223556, "lng": 116.897378}, {"nama": "TOKO BAROKAH", "lat": -1.22701, "lng": 116.897474}, {"nama": "TOKO EVI", "lat": -1.236188, "lng": 116.89732}, {"nama": "ANISA SENGKANG", "lat": -1.229921, "lng": 116.895923}, {"nama": "TOKO RIZQI", "lat": -1.226174, "lng": 116.90116}, {"nama": "HJ NANI", "lat": -1.240063, "lng": 116.88341}, {"nama": "TIGA PUTRA 2", "lat": -1.240505, "lng": 116.885504}, {"nama": "MEGA", "lat": -1.241781, "lng": 116.893842}, {"nama": "DIERA", "lat": -1.235431, "lng": 116.898644}], "SITI||M2C13-R05": [{"nama": "SUDIRMAN", "lat": -1.257378, "lng": 116.920936}, {"nama": "MUTIA", "lat": -1.253945, "lng": 116.924248}, {"nama": "SETYAWATI, TK", "lat": -1.257214, "lng": 116.921314}, {"nama": "BMS, TK", "lat": -1.258337, "lng": 116.918764}, {"nama": "RINTO, TK", "lat": -1.252736, "lng": 116.925721}, {"nama": "BLESSING, TK", "lat": -1.258508, "lng": 116.913641}, {"nama": "ALTON, TK", "lat": -1.260079, "lng": 116.914793}, {"nama": "RAHMAT CEL", "lat": -1.256373, "lng": 116.913149}, {"nama": "TOKO RUDI 01", "lat": -1.255928, "lng": 116.924336}, {"nama": "TOKO GADIS", "lat": -1.245056, "lng": 116.924123}, {"nama": "SERAYA", "lat": -1.26068, "lng": 116.913407}, {"nama": "TK ACHA", "lat": -1.25898, "lng": 116.917281}, {"nama": "SAMPURNA", "lat": -1.251319, "lng": 116.913661}, {"nama": "TOKO MIRA", "lat": -1.248176, "lng": 116.9249}, {"nama": "JANES 2", "lat": -1.257011, "lng": 116.913041}, {"nama": "SINAR BUTON", "lat": -1.249867, "lng": 116.924834}, {"nama": "RUDI 04", "lat": -1.258653, "lng": 116.91802}, {"nama": "BMS 2", "lat": -1.258587, "lng": 116.918161}, {"nama": "RUDI 02", "lat": -1.257877, "lng": 116.919982}, {"nama": "HIKMAH", "lat": -1.258015, "lng": 116.908167}], "SITI||M2C13-R06": [{"nama": "SALMA", "lat": -1.229985, "lng": 116.94844}, {"nama": "ROHMAN", "lat": -1.232828, "lng": 116.946483}, {"nama": "NIAGA BARU", "lat": -1.220344, "lng": 116.95496}, {"nama": "CAHAYA SIDRAP, TK", "lat": -1.223477, "lng": 116.952554}, {"nama": "ZIZAH 2, TK", "lat": -1.221951, "lng": 116.944232}, {"nama": "CAHAYA MANGGAR BARU,TK", "lat": -1.226783, "lng": 116.946509}, {"nama": "RAFA, TK", "lat": -1.230152, "lng": 116.928424}, {"nama": "RAFA 2", "lat": -1.227619, "lng": 116.929624}, {"nama": "JAYA MAKMUR", "lat": -1.230537, "lng": 116.944617}, {"nama": "KEMALA MULTI BISNIS", "lat": -1.228242, "lng": 116.943756}, {"nama": "CAHAYA BUKIT BATAKAN", "lat": -1.229337, "lng": 116.926025}, {"nama": "WAHYU", "lat": -1.23224, "lng": 116.949246}, {"nama": "TOKO ABI", "lat": -1.227182, "lng": 116.933012}, {"nama": "SALSABILA", "lat": -1.234592, "lng": 116.950986}, {"nama": "WARUNG NIA CELL", "lat": -1.235902, "lng": 116.95266}, {"nama": "ARGA", "lat": -1.233014, "lng": 116.949759}, {"nama": "ALYA 01", "lat": -1.234583, "lng": 116.954524}, {"nama": "BISMA SEMBAKO", "lat": -1.228876, "lng": 116.927862}, {"nama": "MIRZA", "lat": -1.207022, "lng": 116.945399}, {"nama": "ASKAR", "lat": -1.23488, "lng": 116.954179}, {"nama": "DEPO DZAKA", "lat": -1.226207, "lng": 116.928425}, {"nama": "ASTI", "lat": -1.231126, "lng": 116.944841}], "SITI||M2C24-R01": [{"nama": "FAHRI", "lat": -1.2714, "lng": 116.839077}, {"nama": "INDARWATI", "lat": -1.272557, "lng": 116.838584}, {"nama": "KABUL MULYONO,TK", "lat": -1.271092, "lng": 116.835196}, {"nama": "SIMON, TK", "lat": -1.262895, "lng": 116.835677}, {"nama": "CHI CHING, TK", "lat": -1.272031, "lng": 116.83876}, {"nama": "FRESLY, TK", "lat": -1.265513, "lng": 116.839992}, {"nama": "SURYADI, TK", "lat": -1.272426, "lng": 116.839157}, {"nama": "BU MUR, TK", "lat": -1.26547, "lng": 116.839882}, {"nama": "MINAK JINGGO, TK", "lat": -1.265249, "lng": 116.837183}, {"nama": "ANI", "lat": -1.267696, "lng": 116.833672}, {"nama": "KEMBAR MAMA, TK", "lat": -1.259577, "lng": 116.835031}, {"nama": "HAFID, TK", "lat": -1.268174, "lng": 116.832289}, {"nama": "SUKARNO, TK", "lat": -1.266433, "lng": 116.831751}, {"nama": "DIDIT, TK", "lat": -1.26494, "lng": 116.832673}, {"nama": "POJOK, WR", "lat": -1.26619, "lng": 116.832403}, {"nama": "DERI, TK", "lat": -1.268099, "lng": 116.841039}, {"nama": "TK ZAIN 2", "lat": -1.269018, "lng": 116.837509}, {"nama": "JIMY", "lat": -1.262808, "lng": 116.835143}, {"nama": "RAFLI", "lat": -1.269521, "lng": 116.834735}, {"nama": "AKIFA 02", "lat": -1.271468, "lng": 116.833582}, {"nama": "INDAH SAKINAH", "lat": -1.261096, "lng": 116.834253}, {"nama": "ZIDAN 2", "lat": -1.259521, "lng": 116.83633}], "SITI||M2C24-R02": [{"nama": "ABU JAYA", "lat": -1.262018, "lng": 116.844299}, {"nama": "EDU", "lat": -1.265364, "lng": 116.844834}, {"nama": "IBUKU, TK", "lat": -1.266264, "lng": 116.844822}, {"nama": "HARIS, TK", "lat": -1.27163, "lng": 116.842181}, {"nama": "ACONK, TK", "lat": -1.273214, "lng": 116.839718}, {"nama": "GOLDEN, MATR-S", "lat": -1.274311, "lng": 116.849911}, {"nama": "KARDANI", "lat": -1.274717, "lng": 116.849302}, {"nama": "SURIADI", "lat": -1.269446, "lng": 116.848129}, {"nama": "YANA, TK", "lat": -1.267207, "lng": 116.855915}, {"nama": "BERKAH", "lat": -1.267025, "lng": 116.849774}, {"nama": "RAFLI, TK", "lat": -1.271909, "lng": 116.854977}, {"nama": "87/WAHYU 2", "lat": -1.265941, "lng": 116.852146}, {"nama": "TK ILMI", "lat": -1.275044, "lng": 116.844752}, {"nama": "TK. RUSDI 03", "lat": -1.276337, "lng": 116.838283}, {"nama": "GAISAN SIAGA", "lat": -1.267171, "lng": 116.855074}, {"nama": "TK EMI 4", "lat": -1.275379, "lng": 116.843265}, {"nama": "JIBRAN", "lat": -1.26301, "lng": 116.846538}, {"nama": "TIGA PUTRA", "lat": -1.263535, "lng": 116.846702}, {"nama": "WR EMBAH", "lat": -1.274703, "lng": 116.841013}, {"nama": "TIGA PUTRA", "lat": -1.26374, "lng": 116.850478}], "SITI||M2C24-R03": [{"nama": "TK, SINAR", "lat": -1.267078, "lng": 116.87955}, {"nama": "ANGEL", "lat": -1.26154, "lng": 116.872768}, {"nama": "CITRA", "lat": -1.264242, "lng": 116.881919}, {"nama": "ANI", "lat": -1.246182, "lng": 116.88159}, {"nama": "VIKA, TK", "lat": -1.263646, "lng": 116.875512}, {"nama": "RAKA, TK", "lat": -1.262071, "lng": 116.890107}, {"nama": "MECHA", "lat": -1.261215, "lng": 116.872712}, {"nama": "NAYLA", "lat": -1.259654, "lng": 116.873051}, {"nama": "SRI", "lat": -1.248572, "lng": 116.888712}, {"nama": "TOYIB CELL", "lat": -1.264932, "lng": 116.88574}, {"nama": "RIZAL", "lat": -1.259196, "lng": 116.879704}, {"nama": "PANDAWA", "lat": -1.264692, "lng": 116.877383}, {"nama": "HAFIDZAH", "lat": -1.260241, "lng": 116.878677}, {"nama": "PAISA 02", "lat": -1.262677, "lng": 116.874922}, {"nama": "ABAIL828", "lat": -1.2605, "lng": 116.878421}, {"nama": "MUHAMMAD NUR", "lat": -1.259424, "lng": 116.879431}, {"nama": "TAUFIK", "lat": -1.245979, "lng": 116.882407}, {"nama": "TK BELAWA BERKAH", "lat": -1.263117, "lng": 116.87504}, {"nama": "SYAHIDA", "lat": -1.262047, "lng": 116.890019}, {"nama": "RONI", "lat": -1.259055, "lng": 116.870854}], "SITI||M2C24-R04": [{"nama": "GUFRON/EMMA", "lat": -1.24981, "lng": 116.899741}, {"nama": "REZKY", "lat": -1.241214, "lng": 116.904921}, {"nama": "FAUZAN, TK", "lat": -1.242251, "lng": 116.898463}, {"nama": "OXY, TK", "lat": -1.243276, "lng": 116.899146}, {"nama": "ZAYN, TK", "lat": -1.234912, "lng": 116.912234}, {"nama": "FAAZA", "lat": -1.245733, "lng": 116.897871}, {"nama": "SALSABILA, TK", "lat": -1.240171, "lng": 116.904593}, {"nama": "IBRAHIM TORO, H", "lat": -1.249955, "lng": 116.900611}, {"nama": "PUTRA YUDA, TK", "lat": -1.254946, "lng": 116.905858}, {"nama": "DIMAS, TK", "lat": -1.249923, "lng": 116.900533}, {"nama": "KEVIN, TK", "lat": -1.256555, "lng": 116.900248}, {"nama": "FEBY, TK", "lat": -1.235178, "lng": 116.9126}, {"nama": "TWIN, TK", "lat": -1.245245, "lng": 116.908824}, {"nama": "TOKO RAFATAR", "lat": -1.250013, "lng": 116.900778}, {"nama": "TOKO ADIT JAYA", "lat": -1.237632, "lng": 116.907611}, {"nama": "TK DIRZA", "lat": -1.250201, "lng": 116.903415}, {"nama": "TK AL MALIKI", "lat": -1.248536, "lng": 116.903718}, {"nama": "NIA", "lat": -1.25251, "lng": 116.904214}, {"nama": "RIZKI", "lat": -1.241022, "lng": 116.902175}, {"nama": "TOKO SAFIRA 3", "lat": -1.241338, "lng": 116.900122}], "SITI||M2C24-R05": [{"nama": "RUSDI 04", "lat": -1.232248, "lng": 116.928843}, {"nama": "KARDI (MERAH)", "lat": -1.238421, "lng": 116.939397}, {"nama": "AGUS, TK", "lat": -1.246866, "lng": 116.937114}, {"nama": "ASYIFA, TK", "lat": -1.243194, "lng": 116.942748}, {"nama": "YUNI, TK", "lat": -1.24402, "lng": 116.934876}, {"nama": "ANTO, TK", "lat": -1.246866, "lng": 116.937114}, {"nama": "CAHYA/EVA, TK", "lat": -1.250183, "lng": 116.933064}, {"nama": "SEDERHANA, TK", "lat": -1.246993, "lng": 116.937078}, {"nama": "KARDI 2, TK", "lat": -1.24174, "lng": 116.940634}, {"nama": "MATUS, TK", "lat": -1.235117, "lng": 116.929402}, {"nama": "TETEH, TK", "lat": -1.239774, "lng": 116.930395}, {"nama": "MAMA HELDA, TK", "lat": -1.245105, "lng": 116.935686}, {"nama": "SIMPANG, TK", "lat": -1.235903, "lng": 116.930065}, {"nama": "ANI, TK", "lat": -1.243338, "lng": 116.942032}, {"nama": "TK ANTIKA", "lat": -1.251661, "lng": 116.930974}, {"nama": "JAYA", "lat": -1.24314, "lng": 116.942823}, {"nama": "DANI", "lat": -1.240043, "lng": 116.937548}, {"nama": "AAN3", "lat": -1.240772, "lng": 116.933021}, {"nama": "TOKO GLORIA", "lat": -1.240377, "lng": 116.940125}, {"nama": "BERKAH", "lat": -1.237677, "lng": 116.937881}, {"nama": "RUSDI 08", "lat": -1.24011, "lng": 116.940082}], "SITI||M2C24-R06": [{"nama": "ANDI AYU,TK", "lat": -1.184076, "lng": 116.998826}, {"nama": "DIAN RAINA", "lat": -1.192448, "lng": 116.992534}, {"nama": "TOKO MUAMALAT", "lat": -1.184105, "lng": 116.998675}, {"nama": "HERI", "lat": -1.221427, "lng": 116.96656}, {"nama": "NORHALIYAH, HJ", "lat": -1.218545, "lng": 116.964906}, {"nama": "ARSYAD, TK", "lat": -1.219743, "lng": 116.964553}, {"nama": "FATHIYA, TK", "lat": -1.214053, "lng": 116.973336}, {"nama": "IKSAN, TK", "lat": -1.221649, "lng": 116.966354}, {"nama": "SAMUEL, TK", "lat": -1.212759, "lng": 116.975518}, {"nama": "BUNGA TOKO", "lat": -1.212903, "lng": 116.975794}, {"nama": "BILQIS, TK", "lat": -1.210105, "lng": 116.968536}, {"nama": "IBU NITA, TK", "lat": -1.206058, "lng": 116.968903}, {"nama": "SIKAMPOTTA, TK", "lat": -1.213766, "lng": 116.975165}, {"nama": "ARIS, TK", "lat": -1.210596, "lng": 116.974736}, {"nama": "ARJUN I, TK", "lat": -1.221791, "lng": 116.966222}, {"nama": "YUNUS, TK", "lat": -1.224314, "lng": 116.969101}, {"nama": "FAIZ", "lat": -1.221358, "lng": 116.966618}, {"nama": "TOKO DZAKIRA", "lat": -1.209832, "lng": 116.975243}, {"nama": "NUR CELL", "lat": -1.216345, "lng": 116.971204}, {"nama": "TK RSN", "lat": -1.198214, "lng": 116.994456}, {"nama": "ALMADINA", "lat": -1.219255, "lng": 116.968494}, {"nama": "RAIHAN", "lat": -1.205182, "lng": 116.963527}]};
+
+const ROUTE_COLORS = ['#2a5a7a','#a3521f','#7a2a5c','#2f6b4f','#8a6d1f','#5c3aa3','#1f6b8a','#a32a4c','#3a7a2a','#7a4a2a','#2a2a7a','#6b8a1f'];
+
+function haversine(lat1,lng1,lat2,lng2){
+  const R=6371000, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLng=toRad(lng2-lng1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function bearing(lat1,lng1,lat2,lng2){
+  const toRad=d=>d*Math.PI/180, toDeg=r=>r*180/Math.PI;
+  const y = Math.sin(toRad(lng2-lng1))*Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) - Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lng2-lng1));
+  return (toDeg(Math.atan2(y,x))+360)%360;
+}
+function pointInPolygonLatLng(lat,lng,poly){
+  // poly: array of [lat,lng]
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const yi=poly[i][0], xi=poly[i][1], yj=poly[j][0], xj=poly[j][1];
+    const intersect = ((yi>lat)!==(yj>lat)) && (lng < (xj-xi)*(lat-yi)/(yj-yi)+xi);
+    if(intersect) inside=!inside;
+  }
+  return inside;
+}
+
+/* ══════════ Picker ══════════ */
+function renderPicker(){
+  document.getElementById('salesInput').value = SALES_KODE;
+  const listEl = document.getElementById('routeList');
+  listEl.innerHTML = '';
+  if(!SALES_KODE){ listEl.innerHTML = `<p style="font-size:12.5px;color:var(--ink-soft);text-align:center;padding:20px 0;">Isi kode sales dulu, tap Tampilkan.</p>`; return; }
+  const myRoutes = Object.values(ATE_ASSIGNMENT).filter(r=>r.sales.toUpperCase()===SALES_KODE.toUpperCase());
+  if(myRoutes.length===0){ listEl.innerHTML = `<p style="font-size:12.5px;color:var(--ink-soft);text-align:center;padding:20px 0;">Gak ketemu rute buat "${SALES_KODE}". Data pilot cuma RENDI dan SITI.</p>`; return; }
+  myRoutes.forEach(r=>{
+    const hasAte = r.ate_zona !== null;
+    const btn = document.createElement('button');
+    btn.className='route-btn';
+    btn.style.background = hasAte ? '#e7eff5' : '#f4f4f0';
+    btn.style.borderColor = hasAte ? '#c9dae5' : 'var(--line)';
+    btn.innerHTML = `<div class="row"><span class="name">${r.rute}</span><span class="badge" style="background:${hasAte?'#2a5a7a':'#b4b2a9'};">${hasAte?'ADA ATE':'TIDAK ADA'}</span></div><p class="sub">${hasAte?`${r.ate_zona.kecamatan} · ${r.jarak_km} km`:`Terjauh ${r.jarak_km} km`}</p>`;
+    btn.addEventListener('click', ()=>selectRoute(r));
+    listEl.appendChild(btn);
+  });
+}
+document.getElementById('salesSubmitBtn').addEventListener('click', ()=>{
+  SALES_KODE = document.getElementById('salesInput').value.trim();
+  localStorage.setItem('noo_sales_kode', SALES_KODE);
+  renderPicker();
+});
+document.getElementById('salesInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('salesSubmitBtn').click(); });
+
+let ZONA_DATA=null, ZONE_CENTER=null, ZONE_POLY_LATLNG=null, START_POS=null;
+let map=null, youMarker=null, arrived=false, lastLat=null, lastLng=null, fallbackTriggered=false;
+let gridCells=[], sweptCount=0;
+
+function selectRoute(routeEntry){
+  if(!routeEntry.ate_zona){
+    alert(`Rute ${routeEntry.rute} gak ada zona ATE (terdekat ${routeEntry.jarak_km} km). Lanjut rute biasa.`);
+    return;
+  }
+  document.getElementById('screenPicker').style.display='none';
+  document.getElementById('screenMap').style.display='block';
+  initMapScreen(routeEntry);
+}
+
+function initMapScreen(routeEntry){
+  ZONA_DATA = routeEntry.ate_zona;
+  ZONE_CENTER = ZONA_DATA.zone_center;
+  ZONE_POLY_LATLNG = ZONA_DATA.polygon; // [[lat,lng],...]
+  arrived=false; lastLat=null; lastLng=null; fallbackTriggered=false; sweptCount=0;
+
+  document.getElementById('zoneTitleText').textContent = `Zona ATE — ${ZONA_DATA.kecamatan}`;
+  document.getElementById('zoneLegendText').textContent = `Skor ${ZONA_DATA.skor_prioritas} · ${ZONA_DATA.confidence}`;
+  document.getElementById('statusNote').textContent = `${ZONA_DATA.aksi_lapangan} · Additional CB (NOO): ${ZONA_DATA.additional_cb_noo}`;
+
+  navFloat.classList.remove('hidden');
+  document.getElementById('sweepFloat').classList.remove('show');
+  document.getElementById('fab').classList.remove('show');
+  document.getElementById('statBar').classList.remove('show');
+  document.getElementById('distText').textContent = '-- m';
+  document.getElementById('statusText').textContent = 'Menyalakan GPS...';
+  document.getElementById('statNew').textContent = '0';
+
+  if(map){ map.remove(); map=null; }
+  map = L.map('map', {zoomControl:false}).setView([ZONE_CENTER.lat, ZONE_CENTER.lng], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}).addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+
+  const polyLL = ZONE_POLY_LATLNG.map(p=>[p[0],p[1]]);
+  L.polygon(polyLL, {color:'#d4a900', weight:2, fillColor:'#fff3c4', fillOpacity:0.5}).addTo(map)
+    .bindPopup(`<b>${ZONA_DATA.kecamatan}</b><br>Skor ${ZONA_DATA.skor_prioritas} · ${ZONA_DATA.confidence}<br>${ZONA_DATA.aksi_lapangan}`);
+
+  // ── semua toko dari SEMUA rute sales ini yang match ATE (bukan cuma rute yg dipilih), dibedain warna per rute ──
+  const myMatchedRoutes = Object.values(ATE_ASSIGNMENT).filter(r=>r.sales.toUpperCase()===SALES_KODE.toUpperCase() && r.ate_zona!==null);
+  const legendRow = document.getElementById('legendRow');
+  legendRow.innerHTML = `<span><span style="width:12px;height:8px;border-radius:2px;background:#fff3c4;border:1px solid #d4a900;display:inline-block;"></span><span>${ZONA_DATA.kecamatan}</span></span><span>▲ Kamu</span>`;
+
+  myMatchedRoutes.forEach((re, idx)=>{
+    const color = ROUTE_COLORS[idx % ROUTE_COLORS.length];
+    const key = `${re.sales}||${re.rute}`;
+    const outlets = ROUTE_OUTLETS[key] || [];
+    const icon = L.divIcon({html:`<div style="width:13px;height:13px;border-radius:50% 50% 50% 0;background:${color};border:1.5px solid #fff;transform:rotate(-45deg);box-shadow:0 1px 2px rgba(0,0,0,.3);"></div>`, className:'', iconSize:[13,13], iconAnchor:[6,13]});
+    outlets.forEach(o=>{
+      L.marker([o.lat,o.lng], {icon}).addTo(map).bindPopup(`<b>${o.nama}</b><br>Rute: ${re.rute}`);
+    });
+    const legendItem = document.createElement('span');
+    legendItem.innerHTML = `<span style="width:8px;height:8px;border-radius:50% 50% 50% 0;background:${color};display:inline-block;transform:rotate(-45deg);"></span>${re.rute}`;
+    legendRow.appendChild(legendItem);
+  });
+
+  // titik awal simulasi -- dipastikan JELAS di luar bounding box zona (bukan cuma offset kecil dari centroid)
+  const b = ZONA_DATA.zone_bounds;
+  START_POS = { lat: b.north + 0.05, lng: b.west - 0.05 };
+
+  buildGrid();
+  startTracking();
+}
+
+function buildGrid(){
+  gridCells = [];
+  const b = ZONA_DATA.zone_bounds;
+  const N = 3;
+  const dLat = (b.north-b.south)/N, dLng = (b.east-b.west)/N;
+  for(let i=0;i<N;i++) for(let j=0;j<N;j++){
+    const latS=b.south+i*dLat, latN=b.south+(i+1)*dLat, lngW=b.west+j*dLng, lngE=b.west+(j+1)*dLng;
+    const centerLat=(latS+latN)/2, centerLng=(lngW+lngE)/2;
+    if(!pointInPolygonLatLng(centerLat,centerLng,ZONE_POLY_LATLNG)) continue;
+    const rect = L.rectangle([[latS,lngW],[latN,lngE]], {color:'#88877f', weight:1, fillColor:'#88877f', fillOpacity:0.08});
+    gridCells.push({rect, centerLat, centerLng, swept:false, added:false});
+  }
+  document.getElementById('progLabel').textContent = `0 / ${gridCells.length} area`;
+}
+
+function setArrow(deg){ document.getElementById('arrowIcon').style.transform = `rotate(${deg}deg)`; }
+
+function updatePosition(lat,lng){
+  if(!youMarker){
+    const icon = L.divIcon({html:'<div style="width:16px;height:16px;border-radius:50%;background:#2a5a7a;border:3px solid #fff;box-shadow:0 0 0 4px rgba(42,90,122,.25);"></div>', className:'', iconSize:[16,16], iconAnchor:[8,8]});
+    youMarker = L.marker([lat,lng], {icon}).addTo(map);
+  } else { youMarker.setLatLng([lat,lng]); }
+
+  if(lastLat!==null){
+    const brg = bearing(lastLat,lastLng,lat,lng);
+    if(haversine(lastLat,lastLng,lat,lng) > 1) setArrow(brg);
+  }
+  lastLat=lat; lastLng=lng;
+
+  if(!arrived){
+    const dist = haversine(lat,lng, ZONE_CENTER.lat, ZONE_CENTER.lng);
+    document.getElementById('distText').textContent = dist>=1000 ? (dist/1000).toFixed(1)+' km' : Math.round(dist)+' m';
+    if(pointInPolygonLatLng(lat,lng,ZONE_POLY_LATLNG)){ arrived=true; enterZone(); }
+  } else {
+    gridCells.forEach(c=>{
+      if(!c.added){ c.rect.addTo(map); c.added=true; }
+      if(c.swept) return;
+      if(haversine(lat,lng,c.centerLat,c.centerLng) <= 130){
+        c.swept=true; sweptCount++;
+        c.rect.setStyle({fillColor:'#639922', fillOpacity:0.35, color:'#3b6d11'});
+        document.getElementById('progFill').style.width = Math.round(sweptCount/gridCells.length*100)+'%';
+        document.getElementById('progLabel').textContent = `${sweptCount} / ${gridCells.length} area`;
+      }
+    });
+  }
+}
+
+function enterZone(){
+  document.getElementById('navFloat').classList.add('hidden');
+  document.getElementById('sweepFloat').classList.add('show');
+  document.getElementById('fab').classList.add('show');
+  document.getElementById('statBar').classList.add('show');
+  map.setZoom(16);
+  gridCells.forEach(c=>{ if(!c.added){ c.rect.addTo(map); c.added=true; } });
+  sendToBackend('sesi_eksplorasi', {sales_kode:SALES_KODE, depo:ZONA_DATA.depo, kecamatan:ZONA_DATA.kecamatan, event:'masuk_zona', waktu_client:new Date().toISOString()});
+}
+
+function startTracking(){
+  const fallbackTimer = setTimeout(()=>{
+    if(!fallbackTriggered){ fallbackTriggered=true; document.getElementById('statusText').textContent='GPS gak merespons -- simulasi'; simulateApproach(); }
+  }, 5000);
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(
+      pos=>{ if(!fallbackTriggered){clearTimeout(fallbackTimer);} document.getElementById('statusText').textContent='GPS aktif'; updatePosition(pos.coords.latitude, pos.coords.longitude); },
+      ()=>{ if(fallbackTriggered) return; fallbackTriggered=true; clearTimeout(fallbackTimer); document.getElementById('statusText').textContent='GPS ditolak -- simulasi'; simulateApproach(); },
+      {enableHighAccuracy:true}
+    );
+  } else { clearTimeout(fallbackTimer); fallbackTriggered=true; document.getElementById('statusText').textContent='GPS gak didukung -- simulasi'; simulateApproach(); }
+}
+
+function simulateApproach(){
+  let t=0; const steps=50;
+  const timer = setInterval(()=>{
+    t++; const frac=Math.min(t/steps,1);
+    const lat = START_POS.lat + (ZONE_CENTER.lat-START_POS.lat)*frac;
+    const lng = START_POS.lng + (ZONE_CENTER.lng-START_POS.lng)*frac;
+    updatePosition(lat,lng);
+    if(frac>=1){ clearInterval(timer); if(arrived) simulateSweep(); }
+  }, 200);
+}
+function simulateSweep(){
+  const jitter = gridCells.map(c=>({lat:c.centerLat, lng:c.centerLng}));
+  for(let i=jitter.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [jitter[i],jitter[j]]=[jitter[j],jitter[i]]; }
+  let idx=0;
+  const step=()=>{ if(idx>=jitter.length) return; updatePosition(jitter[idx].lat, jitter[idx].lng); idx++; setTimeout(step, 900); };
+  setTimeout(step, 500);
+}
+
+/* ══════════ Sheet toko baru ══════════ */
+const sheetOverlay=document.getElementById('sheetOverlay'), gpsRow=document.getElementById('gpsRow'), gpsText=document.getElementById('gpsText'), submitBtn=document.getElementById('submitBtn'), thumbPreview=document.getElementById('thumbPreview');
+let capturedPhoto=false, capturedGPS=null;
+function checkSubmitReady(){ submitBtn.disabled = !(document.getElementById('inputNama').value.trim() && capturedPhoto && capturedGPS); }
+document.getElementById('fab').addEventListener('click', ()=>{
+  sheetOverlay.classList.add('show'); capturedPhoto=false; capturedGPS=null;
+  document.getElementById('inputNama').value=''; thumbPreview.style.display='none';
+  gpsRow.classList.add('pending'); gpsText.textContent='Mengambil lokasi kamu...'; checkSubmitReady();
+  const pos = lastLat!==null ? {lat:lastLat,lng:lastLng} : ZONE_CENTER;
+  capturedGPS=[pos.lat,pos.lng]; gpsRow.classList.remove('pending'); gpsText.textContent='Lokasi terkunci'; checkSubmitReady();
+});
+document.getElementById('cancelBtn').addEventListener('click', ()=>sheetOverlay.classList.remove('show'));
+document.getElementById('inputNama').addEventListener('input', checkSubmitReady);
+document.getElementById('camBtn').addEventListener('click', ()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', e=>{
+  const file=e.target.files[0]; if(!file) return;
+  thumbPreview.src=URL.createObjectURL(file); thumbPreview.style.display='block'; capturedPhoto=true; checkSubmitReady();
+});
+document.getElementById('submitBtn').addEventListener('click', ()=>{
+  const nama = document.getElementById('inputNama').value.trim();
+  const icon = L.divIcon({html:'<div style="width:14px;height:14px;border-radius:50%;background:#2a5a7a;border:2px solid #fff;"></div>', className:''});
+  L.marker(capturedGPS, {icon}).addTo(map).bindPopup(nama);
+  document.getElementById('statNew').textContent = Number(document.getElementById('statNew').textContent)+1;
+  sendToBackend('toko_baru', {sales_kode:SALES_KODE, depo:ZONA_DATA.depo, kecamatan:ZONA_DATA.kecamatan, nama_toko:nama, lat:capturedGPS[0], lng:capturedGPS[1], waktu_client:new Date().toISOString()});
+  sheetOverlay.classList.remove('show');
+});
+
+const navFloat = document.getElementById('navFloat');
+renderPicker();
+</script>
+</body>
+</html>
